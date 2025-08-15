@@ -25,7 +25,7 @@ const defaultMenu = {
 🌤 Hola, soy %botname *( %tipo )*
 *%name*, %greeting
 
-🪪 *CANAL :* https://whatsapp.com/channel/0029VbArz9fAO7RGy2915k3O
+🪪 *SOPORTE:* +595984495031
 
 > 🥮 Fecha = *%date*
 > 🍿 Actividad = *%uptime*
@@ -35,7 +35,7 @@ const defaultMenu = {
   header: '\n\`%category 🥞\`',
   body: '\`🧃\` *%cmd* %islimit %isPremium',
   footer: '',
-  after: '\n🍂 Creado por Ado.',
+  after: '\n Creado por NoaDev Studio.',
 }
 
 const handler = async (m, { conn, usedPrefix: _p }) => {
