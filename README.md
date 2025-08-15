@@ -83,4 +83,4 @@ Sigue estos pasos para instalar y ejecutar Michi-WaBot en tu dispositivo.
 
 Este proyecto está bajo la **Licencia MIT**. Puedes usar, modificar y distribuir el código libremente, siempre y cuando mantengas los créditos originales.
 
-© 2025 Ado.
+© 2025 Noa.
