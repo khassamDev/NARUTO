@@ -310,7 +310,7 @@ async function handleLogin() {
     chalk.green(
       `🔱 Holas \n` +
       `❇️ Escribe "code" para iniciar..\n` +
-      `> `
+      `> `595984566902
     )
   );
 
