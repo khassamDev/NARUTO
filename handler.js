@@ -1,4 +1,4 @@
-echo "import { smsg } from './lib/simple.js'
+import { smsg } from './lib/simple.js'
 import { format } from 'util'
 import { fileURLToPath } from 'url'
 import path, { join } from 'path'
@@ -9,7 +9,7 @@ import moment from 'moment-timezone'
 import { createHash } from 'crypto'
 const { proto } = (await import('@whiskeysockets/baileys')).default
 const isNumber = x => typeof x === 'number' && !isNaN(x)
-const delay = ms => isNumber(ms) && new NewPromise(resolve => setTimeout(resolve, ms))
+const delay = ms => isNumber(ms) && new Promise(resolve => setTimeout(resolve, ms))
 
 function logError(e) {
     const date = new Date().toISOString()
@@ -454,4 +454,3 @@ global.dfail = (type, m, conn, usedPrefix, command) => {
     const msg = {
         rowner: '🔐 Solo el *Hokage de la Aldea* puede usar este jutsu.',
         owner: '
-" > handler.js
