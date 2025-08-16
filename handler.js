@@ -319,7 +319,7 @@ ${moneda}: +46
             if (plugin.owner && !isOwner) { fail('owner', m, this, usedPrefix, command); continue }
             if (plugin.mods && !isMods) { fail('mods', m, this, usedPrefix, command); continue }
             if (plugin.premium && !isPrems) { fail('premium', m, this, usedPrefix, command); continue }
-            if (plugin.group && !m.isGroup) { fail('group', m, this, usedPrefix, command); continue } else if (plugin.botAdmin && !isBotAdmin) { fail('botAdmin', m, this, usedPrefix, command); continue } else if (plugin.admin && !isAdmin) { fail('admin', m, this, usedPrefix, command); continue }
+            if (plugin.group && !m.isGroup) { fail('group', m, this, usedPrefix, command); continue } else if (plugin.botAdmin && !isBotAdmin) { fail('botAdmin', m, this, usedPrefix, command); continue } else if (plugin.admin && !(isAdmin || isOwner)) { fail('admin', m, this, usedPrefix, command); continue }
             if (plugin.private && m.isGroup) { fail('private', m, this, usedPrefix, command); continue }
             if (plugin.register === true && _user.registered === false) { fail('unreg', m, this, usedPrefix, command); continue }
 
