@@ -2,40 +2,41 @@ import fs from 'fs'
 import { join } from 'path'
 import { xpRange } from '../lib/levelling.js'
 
-const tags = {
-  serbot: '🫟 SUBBOTS',
-  eco: '💸 ECONOMÍA',
-  downloader: '⬇️ DESCARGAS',
-  tools: '🛠️ HERRAMIENTAS',
-  owner: '👑 PROPIETARIO',
-  info: 'ℹ️ INFORMACIÓN',
-  game: '🎮 JUEGOS',
-  gacha: '🎲 GACHA ANIME',
-  reacciones: '💕 ANIME REACCIONES',
-  group: '👥 GRUPOS',
-  search: '🔎 BUSCADORES',
-  sticker: '📌 STICKERS',
-  ia: '🤖 IA',
-  channel: '📺 CANALES',
-  fun: '😂 DIVERSIÓN',
+// Etiquetas y secciones con temática de Naruto
+const tagsNaruto = {
+  serbot: '🫔 JADIBOT: CLONES',
+  eco: '💰 RYO: ECONOMÍA',
+  downloader: '📜 JUTSUS DE DESCARGA',
+  tools: '🪡 HERRAMIENTAS SHINOBI',
+  owner: '👑 KAGE DE LA ALDEA',
+  info: 'ℹ️ TABLÓN DE MISIONES',
+  game: '🎯 JUEGOS DE NINJAS',
+  gacha: '🍥 RAMEN DE LA SUERTE',
+  reacciones: '🧡 REACCIONES NARU',
+  group: '👥 ALDEA DE LA HOJA',
+  search: '🔍 NIKKEN: BUSCADORES',
+  sticker: '💥 NINJUTSUS DE STICKER',
+  ia: '🧠 MENTE SHINOBI',
+  channel: '📺 TAIKAI DE CANALES',
+  fun: '😂 DIVERSIÓN Y ENTRENAMIENTO',
 }
 
-const defaultMenu = {
+const defaultMenuNaruto = {
   before: `
-🌤 Hola, soy %botname *( %tipo )*
-*%name*, %greeting
+¡Dattebayo, %name!
+Soy %botname *( %tipo )*, listo para la batalla.
 
 🪪 *SOPORTE:* +595984495031
 
-> 🥮 Fecha = *%date*
-> 🍿 Actividad = *%uptime*
+> 🍜 Fecha de misión: *%date*
+> 🍥 Tiempo de servicio: *%uptime*
 %readmore
 `.trimStart(),
 
   header: '\n\`%category 🥞\`',
   body: '\`🧃\` *%cmd* %islimit %isPremium',
   footer: '',
-  after: '\n Creado por NoaDev Studio.',
+  after: '\nCreado por el Clan Uchiha.',
 }
 
 const handler = async (m, { conn, usedPrefix: _p }) => {
@@ -71,11 +72,11 @@ const handler = async (m, { conn, usedPrefix: _p }) => {
     }
 
     const tipo = conn.user.jid === global.conn.user.jid ? '𝗣𝗿𝗶𝗻𝗰𝗶𝗽𝗮𝗹 🆅' : '𝗦𝘂𝗯𝗕𝗼𝘁 🅱'
-    const menuConfig = conn.menu || defaultMenu
+    const menuConfig = defaultMenuNaruto // Usamos el nuevo menú
 
     const _text = [
       menuConfig.before,
-      ...Object.keys(tags).map(tag => {
+      ...Object.keys(tagsNaruto).map(tag => { // Usamos las nuevas etiquetas
         const cmds = help
           .filter(menu => menu.tags?.includes(tag))
           .map(menu => menu.help.map(h => 
@@ -84,7 +85,7 @@ const handler = async (m, { conn, usedPrefix: _p }) => {
               .replace(/%islimit/g, menu.limit ? '⭐' : '')
               .replace(/%isPremium/g, menu.premium ? '🪪' : '')
           ).join('\n')).join('\n')
-        return [menuConfig.header.replace(/%category/g, tags[tag]), cmds, menuConfig.footer].join('\n')
+        return [menuConfig.header.replace(/%category/g, tagsNaruto[tag]), cmds, menuConfig.footer].join('\n')
       }),
       menuConfig.after
     ].join('\n')
@@ -128,7 +129,7 @@ const handler = async (m, { conn, usedPrefix: _p }) => {
   }
 }
 
-handler.command = ['menu', 'help', 'hélp', 'menú', 'ayuda']
+handler.command = ['menuninja', 'shinobimenu']
 handler.register = false
 export default handler
 
