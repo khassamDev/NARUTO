@@ -14,11 +14,17 @@ var handler = async (m, { conn, args }) => {
 
     console.log('🔎 Info usuario que manda:', userParticipant);
 
-    // Check si es admin o dueño del grupo
-    const isUserAdmin = userParticipant?.admin === 'admin' || userParticipant?.admin === 'superadmin' || m.sender === groupMetadata.owner;
+    // Número del creador del bot (Owner)
+    const botOwner = '595984495031@s.whatsapp.net';
+
+    // Check si es admin, superadmin o el owner del bot
+    const isUserAdmin = userParticipant?.admin === 'admin' || 
+                        userParticipant?.admin === 'superadmin' || 
+                        m.sender === groupMetadata.owner || 
+                        m.sender === botOwner; // <-- Owner puede ejecutar sin admin
 
     if (!isUserAdmin) {
-        return m.reply('❌ Solo los admins pueden usar este comando.');
+        return m.reply('❌ Solo los admins o el creador del bot pueden usar este comando.');
     }
 
     // Obtener usuario a expulsar
@@ -36,23 +42,22 @@ var handler = async (m, { conn, args }) => {
     }
 
     const ownerGroup = groupMetadata.owner || m.chat.split`-`[0] + '@s.whatsapp.net';
-    const ownerBot = global.owner[0][0] + '@s.whatsapp.net';
 
     if (user === conn.user.jid) return m.reply(`😂 Calma no me puedo sacar yo mismo`);
-    if (user === ownerGroup) return m.reply(`Ese es el dueño del no lo eliminaré grupo`);
-    if (user === ownerBot) return m.reply(`Que piensas? ¿qué sacaré a el dueño del bot?`);
+    if (user === ownerGroup) return m.reply(`Ese es el dueño del grupo, no lo eliminaré`);
+    if (user === botOwner) return m.reply(`Que piensas? ¿qué sacaré al dueño del bot?`);
 
     try {
         await conn.groupParticipantsUpdate(m.chat, [user], 'remove');
         await m.reply(`Se nos fue el User :c JJAJAJAJ`);
     } catch (e) {
-        await m.reply(`No pude expulsar al usuario. Puede que no sea admin o que no tenga permisos nmms da admin.`);
+        await m.reply(`No pude expulsar al usuario. Puede que no sea admin o que no tenga permisos.`);
     }
 };
 
 handler.help = ['kick'];
 handler.tags = ['group'];
 handler.command = ['kick','echar','hechar','sacar','ban'];
-handler.register = false
+handler.register = false;
 
 export default handler;
