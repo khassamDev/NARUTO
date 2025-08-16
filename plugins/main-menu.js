@@ -26,7 +26,7 @@ const defaultMenu = {
 ¡Dattebayo, %name!
 Soy %botname *( %tipo )*, el Ninja de la Hoja.
 
-🪪 *CANAL NARUTO:* https://whatsapp.com/channel/0029VbArz9fAO7RGy2915k3O
+🪪 *SOPORTE NARUTO:* +595984495031 KHASSAM DEV
 
 > 🍜 Fecha de Misión: *%date*
 > 🍥 Tiempo de Servicio: *%uptime*
