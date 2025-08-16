@@ -29,43 +29,40 @@ const handler = async (m, { conn, text }) => {
   if (!text) return m.reply(toSansSerifPlain("✦ Ingresa el nombre o link de un video."));
 
   // Reacción mientras busca el video
-  await conn.sendMessage(m.chat, {
-    react: { text: "🕐", key: m.key }
-  });
-
-  let video;
   try {
+    await conn.sendMessage(m.chat, { react: { text: "🕐", key: m.key } });
+
+    let video;
     const ytId = ytIdRegex.exec(text);
     const search = ytId ? await yts({ videoId: ytId[1] }) : await yts(text);
     video = ytId ? search.video : search.all[0];
-  } catch {
-    return m.reply(toSansSerifPlain("✦ Error al buscar el video."));
+
+    if (!video) throw new Error("No se encontró el video.");
+
+    const { title, timestamp, views, url, thumbnail, author, ago } = video;
+
+    const caption = [
+      "✧─── ･ ｡ﾟ★: *.✦ .* :★. ───✧",
+      "⧼ ᰔᩚ ⧽  M U S I C  -  Y O U T U B E",
+      "",
+      `» ✧ « *${title}*`,
+      `> ➩ Canal › *${author.name}*`,
+      `> ➩ Duración › *${timestamp}*`,
+      `> ➩ Vistas › *${formatViews(views)}*`,
+      `> ➩ Publicado › *${ago || "desconocido"}*`,
+      `> ➩ Link › *${url}*`,
+      "",
+      "> ✰ Responde con *Audio* o *Video* para descargar ✧"
+    ].join("\n");
+
+    await conn.sendMessage(m.chat, { image: { url: thumbnail }, caption }, { quoted: m });
+
+  } catch (err) {
+    console.error("Error en .play:", err);
+    await m.reply(toSansSerifPlain(`❌ Ocurrió un error al ejecutar .play:\n${err.message}`));
   }
-
-  if (!video) return m.reply(toSansSerifPlain("✦ No se encontró el video."));
-
-  const { title, timestamp, views, url, thumbnail, author, ago } = video;
-
-  const caption = [
-    "✧─── ･ ｡ﾟ★: *.✦ .* :★. ───✧",
-    "⧼ ᰔᩚ ⧽  M U S I C  -  Y O U T U B E",
-    "",
-    `» ✧ « *${title}*`,
-    `> ➩ Canal › *${author.name}*`,
-    `> ➩ Duración › *${timestamp}*`,
-    `> ➩ Vistas › *${formatViews(views)}*`,
-    `> ➩ Publicado › *${ago || "desconocido"}*`,
-    `> ➩ Link › *${url}*`,
-    "",
-    "> ✰ Responde con *Audio* o *Video* para descargar ✧"
-  ].join("\n");
-
-  await conn.sendMessage(m.chat, {
-    image: { url: thumbnail },
-    caption
-  }, { quoted: m });
 };
 
-handler.command = ["pla"];
+handler.command = ["play", "pla"];
 handler.register = true;
 export default handler;
