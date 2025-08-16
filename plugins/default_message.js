@@ -5,14 +5,23 @@ export const all = async (m, { conn, text, usedPrefix }) => {
     // Si el mensaje tiene un comando, tampoco hacemos nada.
     if (m.command) return;
 
-    // Mensaje que quieres enviar
-    const replyMessage = `Hola soy NARUTO una inteligencia Artificial Creado por NoaDev Studio usa los únicos comandó que tengo actualmente puede ver mis comando con .help`;
+    // Obtener la fecha y hora actuales en un formato específico
+    const now = new Date();
+    const date = now.toLocaleDateString('es-ES');
+    const time = now.toLocaleTimeString('es-ES');
+
+    // Mensaje que quieres enviar con la fecha y hora
+    const replyMessage = `Hola soy NARUTO una inteligencia Artificial Creado por NoaDev Studio.
+
+Usa los únicos comandos que tengo actualmente, puedes ver mis comandos con ${usedPrefix}help.
+
+📅 Fecha: ${date}
+⏰ Hora: ${time}`;
 
     // Enviar el mensaje de respuesta
     await m.reply(replyMessage);
 }
 
-// Este handler no tiene un comando, se activa con cada mensaje
 const handler = async () => {};
 handler.tags = ['system'];
 export default handler;
