@@ -317,3 +317,141 @@ ${moneda}: +46
             if (plugin.rowner && plugin.owner && !(isROwner || isOwner)) { fail('owner', m, this, usedPrefix, command); continue }
             if (plugin.rowner && !isROwner) { fail('rowner', m, this, usedPrefix, command); continue }
             if (plugin.owner && !isOwner) { fail('owner', m, this, usedPrefix, command); continue }
+            if (plugin.mods && !isMods) { fail('mods', m, this, usedPrefix, command); continue }
+            if (plugin.premium && !isPrems) { fail('premium', m, this, usedPrefix, command); continue }
+            if (plugin.group && !m.isGroup) { fail('group', m, this, usedPrefix, command); continue } else if (plugin.botAdmin && !isBotAdmin) { fail('botAdmin', m, this, usedPrefix, command); continue } else if (plugin.admin && !(isAdmin || isOwner)) { fail('admin', m, this, usedPrefix, command); continue }
+            if (plugin.private && m.isGroup) { fail('private', m, this, usedPrefix, command); continue }
+            if (plugin.register === true && _user.registered === false) { fail('unreg', m, this, usedPrefix, command); continue }
+
+            m.isCommand = true
+            let xp = 'exp' in plugin ? parseInt(plugin.exp) : 10
+            m.exp += xp
+
+            if (!isPrems && plugin.coin && global.db.data.users[m.sender].coin < plugin.coin * 1) {
+                this.reply(m.chat, `❮✦❯ Se agotaron tus ${moneda}`, m); continue
+            }
+            if (plugin.level > _user.level) {
+                this.reply(m.chat, `❮✦❯ Se requiere el nivel: *${plugin.level}*\n\n• Tu nivel actual es: *${_user.level}*\n\n• Usa este comando para subir de nivel:\n*${usedPrefix}levelup*`, m); continue
+            }
+
+            let extra = {
+                match, usedPrefix, noPrefix, _args, args, command, text, conn: this, participants,
+                groupMetadata, user: _user, bot, isROwner, isOwner, isRAdmin, isAdmin, isBotAdmin,
+                isPrems, chatUpdate, __dirname: ___dirname, __filename
+            }
+
+            try {
+                await plugin.call(this, m, extra)
+                if (!isPrems) m.coin = m.coin || plugin.coin || false
+            } catch (e) {
+                m.error = e
+                logError(e)
+                if (e) {
+                    let text = format(e)
+                    for (let key of Object.values(global.APIKeys)) text = text.replace(new RegExp(key, 'g'), 'Administrador')
+                    m.reply(text)
+                }
+            } finally {
+                if (typeof plugin.after === 'function') {
+                    try {
+                        await plugin.after.call(this, m, extra)
+                    } catch (e) { logError(e) }
+                }
+                if (m.coin) this.reply(m.chat, `❮✦❯ Utilizaste ${+m.coin} ${moneda}`, m)
+            }
+            break
+        }
+    }
+
+    // --- INICIO: NUEVO CÓDIGO AÑADIDO ---
+    if (m.text === '!perfil') {
+        const user = global.db.data.users[m.sender];
+
+        if (user && user.registered) {
+            const profileMessage = `
+🌟 **Perfil Shinobi de ${user.name}** 🌟
+
+- **Rango:** ${user.role}
+- **Nivel:** ${user.level}
+- **EXP:** ${user.exp}
+- **Monedas:** ${user.coin}
+- **Salud:** ${user.health}
+
+¡Sigue adelante con tu camino ninja!
+            `.trim();
+
+            m.reply(profileMessage);
+
+        } else {
+            m.reply('❌ Tu perfil no fue encontrado. Envía un mensaje para que el bot te registre automáticamente.');
+        }
+    }
+    // --- FIN: NUEVO CÓDIGO AÑADIDO ---
+
+    try {
+        if (opts['queque'] && m.text) {
+            const quequeIndex = this.msgqueque.indexOf(m.id || m.key.id)
+            if (quequeIndex !== -1) this.msgqueque.splice(quequeIndex, 1)
+        }
+
+        let userData, stats = global.db.data.stats
+        if (m) {
+            let user = global.db.data.users[m.sender]
+            if (user?.muto === true) {
+                let bang = m.key.id
+                let cancellazzione = m.key.participant
+                await this.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: bang, participant: cancellazzione } })
+            }
+
+            if (m.sender && (userData = global.db.data.users[m.sender])) {
+                userData.exp += m.exp
+                userData.coin -= m.coin * 1
+            }
+
+            let stat
+            if (m.plugin) {
+                let now = +new Date
+                if (m.plugin in stats) {
+                    stat = stats[m.plugin]
+                    if (!isNumber(stat.total)) stat.total = 1
+                    if (!isNumber(stat.success)) stat.success = m.error != null ? 0 : 1
+                    if (!isNumber(stat.last)) stat.last = now
+                    if (!isNumber(stat.lastSuccess)) stat.lastSuccess = m.error != null ? 0 : now
+                } else {
+                    stat = stats[m.plugin] = {
+                        total: 1, success: m.error != null ? 0 : 1, last: now, lastSuccess: m.error != null ? 0 : now
+                    }
+                }
+                stat.total += 1
+                stat.last = now
+                if (m.error == null) {
+                    stat.success += 1
+                    stat.lastSuccess = now
+                }
+            }
+        }
+
+        try {
+            if (!opts['noprint']) await (await import('./lib/print.js')).default(m, this)
+        } catch (e) { logError(e) }
+
+        let settingsREAD = global.db.data.settings[this.user.jid] || {}
+        if (opts['autoread']) await this.readMessages([m.key])
+
+        if (global.db.data.chats[m.chat]?.reaction && m.text.match(/(ción|dad|aje|oso|izar|mente|pero|tion|age|ous|ate|and|but|ify|ai|yuki|a|s)/gi)) {
+            let emot = pickRandom(["🍥", "💥", "🥷", "🍜", "🍃", "🔥", "💧", "⚡️", "⛰️", "🪨", "☯️", "🪡", "🍡", "👺", "🦊"])
+            if (!m.fromMe) await this.sendMessage(m.chat, { react: { text: emot, key: m.key } })
+        }
+    } catch (e) { logError(e) }
+}
+
+function pickRandom(list) { return list[Math.floor(Math.random() * list.length)] }
+
+global.dfail = (type, m, conn, usedPrefix, command) => {
+    let edadaleatoria = ['10', '28', '20', '40', '18', '21', '15', '11', '9', '17', '25'].getRandom()
+    let user2 = m.pushName || 'Anónimo'
+    let verifyaleatorio = ['registrar', 'reg', 'verificar', 'verify', 'register'].getRandom()
+    const msg = {
+        rowner: '🔐 Solo el *Hokage de la Aldea* puede usar este jutsu.',
+        owner: '
+Actualiza completamente
