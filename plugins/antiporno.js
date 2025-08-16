@@ -20,13 +20,14 @@ async function checkNSFW(buffer) {
     const data = await res.json()
     if (!data.output || !data.output.nsfw_score) return { isNSFW: false }
     return { isNSFW: data.output.nsfw_score > 0.6 }
-  } catch {
+  } catch (err) {
+    console.error('Error en checkNSFW:', err)
     return { isNSFW: false }
   }
 }
 
 // --- Comando para activar/desactivar antiporno
-const toggleHandler = async (m, { command }) => {
+const toggleHandler = async (m, { command, conn, usedPrefix }) => {
   if (!m.isGroup) return m.reply('🔒 Solo funciona en grupos.')
   if (!global.db.data.chats[m.chat]) global.db.data.chats[m.chat] = {}
 
@@ -36,7 +37,7 @@ const toggleHandler = async (m, { command }) => {
   if (!chat.antipornoWarns) chat.antipornoWarns = {}
   if (!chat.antipornoHistory) chat.antipornoHistory = []
 
-  return m.reply(`✅ AntiPorn ${enable ? 'activado' : 'desactivado'} con éxito.`)
+  return m.reply(`✅ AntiPorn ${enable ? 'activado' : 'desactivado'} con éxito.\nUsa ${usedPrefix}historialporn para ver infracciones.`)
 }
 
 toggleHandler.command = ['onantiporno', 'offantiporno']
@@ -55,8 +56,8 @@ const historyHandler = async (m, { conn }) => {
 
   const lines = chat.antipornoHistory.map((u, i) => {
     const userTag = `@${u.jid.split('@')[0]}`
-    return `${i+1}. ${userTag} → ${u.warns} advertencias, última infracción: ${new Date(u.last).toLocaleString()}`
-  }).join('\n')
+    return `📌 ${i+1}. ${userTag} → ⚠️ ${u.warns} advertencias\n   Última: ${new Date(u.last).toLocaleString()}`
+  }).join('\n\n')
 
   await conn.sendMessage(m.chat, { text: `📜 Historial de infracciones:\n\n${lines}`, mentions: chat.antipornoHistory.map(u => u.jid) }, { quoted: m })
 }
@@ -103,6 +104,7 @@ const checkHandler = async (m, { conn }) => {
     try {
       await conn.sendMessage(m.chat, { text: `🚫 ${userTag}, no se permite contenido sexual. Advertencia ${warns}/3.`, mentions: [m.sender] }, { quoted: m })
       await conn.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.key.id, participant: m.sender } })
+      console.log(`Advertencia ${warns}/3 a ${userTag} en ${m.chat}`)
     } catch {}
   } else {
     try {
@@ -110,6 +112,7 @@ const checkHandler = async (m, { conn }) => {
       await conn.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.key.id, participant: m.sender } })
       await conn.groupParticipantsUpdate(m.chat, [m.sender], 'remove')
       chat.antipornoWarns[m.sender] = 0
+      console.log(`Usuario ${userTag} expulsado de ${m.chat}`)
     } catch {
       await conn.sendMessage(m.chat, { text: `⚠️ No pude expulsar a ${userTag}. Puede que no tenga permisos.`, mentions: [m.sender] }, { quoted: m })
     }
