@@ -1,10 +1,12 @@
 import { smsg } from './lib/simple.js'
-import { format } from 'util' 
+import { format } from 'util'
 import { fileURLToPath } from 'url'
 import path, { join } from 'path'
 import { unwatchFile, watchFile } from 'fs'
 import chalk from 'chalk'
 import fetch from 'node-fetch'
+import { createHash } from 'crypto'
+import moment from 'moment-timezone'
 
 const { proto } = (await import('@whiskeysockets/baileys')).default
 const isNumber = x => typeof x === 'number' && !isNaN(x)
@@ -23,7 +25,7 @@ let m = chatUpdate.messages[chatUpdate.messages.length - 1]
 if (!m)
 return;
 if (global.db.data == null)
-await global.loadDatabase()       
+await global.loadDatabase()
 try {
 m = smsg(this, m) || m
 if (!m)
@@ -32,7 +34,7 @@ m.exp = 0
 m.coin = false
 try {
 let user = global.db.data.users[m.sender]
-if (typeof user !== 'object')  
+if (typeof user !== 'object')
 global.db.data.users[m.sender] = {}
 if (user) {
 if (!isNumber(user.exp))
@@ -107,6 +109,50 @@ if (!isNumber(user.bank))
 user.bank = 0
 if (!isNumber(user.warn))
 user.warn = 0
+
+// INICIO DE LA NUEVA LÓGICA DE REGISTRO AUTOMÁTICO
+if (!user.registered) {
+  // Datos por defecto
+  const nombre = (await conn.getName(m.sender)) || "Shinobi"
+  const edad = 18 // por defecto
+  const fecha = moment().tz('America/Tegucigalpa').toDate()
+  const moneda = global.moneda || '💰'
+  const sn = createHash('md5').update(m.sender).digest('hex').slice(0, 20)
+  const groupName = m.isGroup ? (await conn.getGroupMetaData(m.chat)).subject : "Mensaje Privado"
+
+  // Guardamos en base de datos
+  user.name = nombre.trim()
+  user.age = edad
+  user.regTime = +new Date()
+  user.registered = true
+  user.coin += 46
+  user.exp += 310
+  user.joincount += 25
+
+  const certificado = `
+🤖 ¡Has sido registrado por el bot! 🤖
+
+✨ Detalles de tu cuenta ✨
+🔮 Nombre: ${nombre}
+🕒 Edad: ${edad}
+🧬 Código ID: ${sn}
+📅 Registro: ${fecha.toLocaleDateString()}
+🌍 Grupo de registro: ${groupName}
+
+---
+
+🎁 Recompensas iniciales 🎁
+${moneda}: +46
+⭐ EXP: +310
+🎟️ Tickets: +25
+`
+  try {
+    await conn.sendMessage(m.sender, { text: certificado }, { quoted: m })
+  } catch (e) {
+    console.error("❌ No pude enviar el mensaje privado:", e)
+  }
+}
+// FIN DE LA NUEVA LÓGICA DE REGISTRO
 } else
 global.db.data.users[m.sender] = {
 exp: 0,
@@ -141,7 +187,7 @@ bank: 0,
 level: 0,
 role: 'Nuv',
 premium: false,
-premiumTime: 0,                 
+premiumTime: 0,
 }
 let chat = global.db.data.chats[m.chat]
 if (typeof chat !== 'object')
@@ -170,7 +216,7 @@ chat.antiBot = false
 if (!('antiBot2' in chat))
 chat.antiBot2 = false
 if (!('modoadmin' in chat))
-chat.modoadmin = false   
+chat.modoadmin = false
 if (!('antiLink' in chat))
 chat.antiLink = true
 if (!('reaction' in chat))
@@ -201,7 +247,7 @@ antiLink: true,
 antifake: false,
 reaction: false,
 nsfw: false,
-expired: 0, 
+expired: 0,
 antiLag: false,
 per: [],
 }
@@ -234,17 +280,17 @@ const isMods = isROwner || global.mods.map(v => v.replace(/[^0-9]/g, '') + detec
 const isPrems = isROwner || global.prems.map(v => v.replace(/[^0-9]/g, '') + detectwhat).includes(m.sender) || _user.premium == true
 
 if (m.isBaileys) return
-if (opts['nyimak'])  return
+if (opts['nyimak']) return
 if (!isROwner && opts['self']) return
-if (opts['swonly'] && m.chat !== 'status@broadcast')  return
+if (opts['swonly'] && m.chat !== 'status@broadcast') return
 if (typeof m.text !== 'string')
 m.text = ''
 // Funcion para setprimary By Ado
 if (m.isGroup) {
-  let chat = global.db.data.chats[m.chat];
-  if (chat?.primaryBot && this?.user?.jid !== chat.primaryBot) {
-    return; 
-  }
+let chat = global.db.data.chats[m.chat];
+if (chat?.primaryBot && this?.user?.jid !== chat.primaryBot) {
+return;
+}
 }
 
 if (opts['queque'] && m.text && !(isMods || isPrems)) {
@@ -258,6 +304,42 @@ await delay(time)
 }
 
 m.exp += Math.ceil(Math.random() * 10)
+
+// INICIO DE LA NUEVA LÓGICA DE NIVELES Y RANGO
+const user = global.db.data.users[m.sender];
+if (user && user.registered) {
+  const rangos = {
+    'F': 0,
+    'E': 501,
+    'D': 1501,
+    'C': 3001,
+    'B': 5501,
+    'A': 9001,
+    'S': 14001,
+  };
+  
+  const prevLevel = user.level;
+  const newLevel = Math.floor(user.exp / 1000); // Ejemplo: un nivel por cada 1000 de EXP
+
+  if (newLevel > prevLevel) {
+    user.level = newLevel;
+    let currentRank = '';
+    for (const rank in rangos) {
+      if (user.exp >= rangos[rank]) {
+        currentRank = rank;
+      }
+    }
+    
+    // Mensaje de subida de nivel
+    await conn.sendMessage(m.chat, {
+      text: `🎉 ¡Felicidades, @${m.sender.split('@')[0]}! 🎉
+Has subido al nivel ${newLevel} y tu nuevo rango es **${currentRank}**.
+¡Sigue interactuando para alcanzar el siguiente nivel!`,
+      mentions: [m.sender]
+    });
+  }
+}
+// FIN DE LA NUEVA LÓGICA DE NIVELES Y RANGO
 
 async function getLidFromJid(id, conn) {
 if (id.endsWith('@lid')) return id
@@ -278,8 +360,8 @@ const isBotAdmin = !!bot?.admin
 
 const ___dirname = path.join(path.dirname(fileURLToPath(import.meta.url)), './plugins')
 
-// Mover la declaración de usedPrefix aquí para que siempre esté disponible en el ámbito del handler
-let usedPrefix = ''; // Inicializarlo aquí
+// Se movió la declaración de usedPrefix a un ámbito superior para evitar ReferenceError
+let usedPrefix = '';
 
 for (let name in global.plugins) {
 let plugin = global.plugins[name]
@@ -304,7 +386,7 @@ continue
 }
 const str2Regex = str => str.replace(/[|\\{}()[\]^$+*?.]/g, '\\$&')
 let _prefix = plugin.customPrefix ? plugin.customPrefix : conn.prefix ? conn.prefix : global.prefix
-let match = (_prefix instanceof RegExp ? 
+let match = (_prefix instanceof RegExp ?
 [[_prefix.exec(m.text), _prefix]] :
 Array.isArray(_prefix) ?
 _prefix.map(p => {
@@ -347,13 +429,13 @@ let _args = noPrefix.trim().split` `.slice(1)
 let text = _args.join` `
 command = (command || '').toLowerCase()
 let fail = plugin.fail || global.dfail
-let isAccept = plugin.command instanceof RegExp ? 
+let isAccept = plugin.command instanceof RegExp ?
 plugin.command.test(command) :
 Array.isArray(plugin.command) ?
-plugin.command.some(cmd => cmd instanceof RegExp ? 
+plugin.command.some(cmd => cmd instanceof RegExp ?
 cmd.test(command) :
 cmd === command) :
-typeof plugin.command === 'string' ? 
+typeof plugin.command === 'string' ?
 plugin.command === command :
 false
 
@@ -380,51 +462,51 @@ let chat = global.db.data.chats[m.chat]
 let user = global.db.data.users[m.sender]
 let setting = global.db.data.settings[this.user.jid]
 if (name != 'grupo-unbanchat.js' && chat?.isBanned)
-return 
+return
 if (name != 'owner-unbanuser.js' && user?.banned)
 return
 }}
 
-let hl = _prefix 
+let hl = _prefix
 let adminMode = global.db.data.chats[m.chat].modoadmin
-let mini = `${plugins.botAdmin || plugins.admin || plugins.group || plugins || noPrefix || hl ||  m.text.slice(0, 1) == hl || plugins.command}`
-if (adminMode && !isOwner && !isROwner && m.isGroup && !isAdmin && mini) return   
-if (plugin.rowner && plugin.owner && !(isROwner || isOwner)) { 
-fail('owner', m, this, usedPrefix, command) 
+let mini = `${plugins.botAdmin || plugins.admin || plugins.group || plugins || noPrefix || hl || m.text.slice(0, 1) == hl || plugins.command}`
+if (adminMode && !isOwner && !isROwner && m.isGroup && !isAdmin && mini) return
+if (plugin.rowner && plugin.owner && !(isROwner || isOwner)) {
+fail('owner', m, this, usedPrefix, command)
 continue
 }
-if (plugin.rowner && !isROwner) { 
-fail('rowner', m, this, usedPrefix, command) 
+if (plugin.rowner && !isROwner) {
+fail('rowner', m, this, usedPrefix, command)
 continue
 }
-if (plugin.owner && !isOwner) { 
-fail('owner', m, this, usedPrefix, command) 
+if (plugin.owner && !isOwner) {
+fail('owner', m, this, usedPrefix, command)
 continue
 }
-if (plugin.mods && !isMods) { 
-fail('mods', m, this, usedPrefix, command) 
+if (plugin.mods && !isMods) {
+fail('mods', m, this, usedPrefix, command)
 continue
 }
-if (plugin.premium && !isPrems) { 
-fail('premium', m, this, usedPrefix, command) 
+if (plugin.premium && !isPrems) {
+fail('premium', m, this, usedPrefix, command)
 continue
 }
-if (plugin.group && !m.isGroup) { 
-fail('group', m, this, usedPrefix, command) 
+if (plugin.group && !m.isGroup) {
+fail('group', m, this, usedPrefix, command)
 continue
-} else if (plugin.botAdmin && !isBotAdmin) { 
-fail('botAdmin', m, this, usedPrefix, command) 
+} else if (plugin.botAdmin && !isBotAdmin) {
+fail('botAdmin', m, this, usedPrefix, command)
 continue
-} else if (plugin.admin && !isAdmin) { 
-fail('admin', m, this, usedPrefix, command) 
+} else if (plugin.admin && !isAdmin) {
+fail('admin', m, this, usedPrefix, command)
 continue
 }
 if (plugin.private && m.isGroup) {
-fail('private', m, this, usedPrefix, command) 
+fail('private', m, this, usedPrefix, command)
 continue
 }
-if (plugin.register == true && _user.registered == false) { 
-fail('unreg', m, this, usedPrefix, command) 
+if (plugin.register == true && _user.registered == false) {
+fail('unreg', m, this, usedPrefix, command)
 continue
 }
 m.isCommand = true
@@ -475,8 +557,6 @@ text = text.replace(new RegExp(key, 'g'), 'Administrador')
 m.reply(text)
 }
 } finally {
-// El bloque finally siempre se ejecuta, incluso si usedPrefix no ha sido definido
-// Asegúrate de que cualquier uso de usedPrefix aquí sea seguro o maneje el caso en que no exista.
 if (typeof plugin.after === 'function') {
 try {
 await plugin.after.call(this, m, extra)
@@ -486,16 +566,12 @@ console.error(e)
 if (m.coin)
 conn.reply(m.chat, `❮✦❯ Utilizaste ${+m.coin} ${moneda}`, m)
 }
-break // Este break debería estar fuera del finally si quieres que el loop siga
-// O sea, si un plugin lanza un error, break termina el loop, si no, el loop continua.
-// Si el break está dentro del if ((usedPrefix = (match[0] || '')[0])), entonces solo se rompe si se encuentra un comando.
-// Considerando que el error se da en el finally, la lógica parece ser que el loop de plugins no siempre se rompe.
-}} // Este cierre de llave pertenece al for...in global.plugins
+break
+}}
 
 } catch (e) {
 console.error(e)
 } finally {
-// usedPrefix está disponible aquí porque se declaró más arriba en el scope del handler
 if (opts['queque'] && m.text) {
 const quequeIndex = this.msgqueque.indexOf(m.id || m.key.id)
 if (quequeIndex !== -1)
@@ -542,12 +618,9 @@ stat.lastSuccess = now
 
 try {
 if (!opts['noprint']) await (await import(`./lib/print.js`)).default(m, this)
-} catch (e) { 
-console.log(m, m.quoted, e)} // <<< Esta es la línea 338, aquí 'usedPrefix' NO se usa directamente,
-                                // pero si 'print.js' o 'm' (con su propiedad 'usedPrefix')
-                                // la causan, entonces el problema es en el scope de esas.
-                                // La solución de mover 'let usedPrefix' resolverá esto.
-let settingsREAD = global.db.data.settings[this.user.jid] || {}  
+} catch (e) {
+console.log(m, m.quoted, e)}
+let settingsREAD = global.db.data.settings[this.user.jid] || {}
 if (opts['autoread']) await this.readMessages([m.key])
 
 if (db.data.chats[m.chat].reaction && m.text.match(/(ción|dad|aje|oso|izar|mente|pero|tion|age|ous|ate|and|but|ify|ai|yuki|a|s)/gi)) {
@@ -557,40 +630,39 @@ if (!m.fromMe) return this.sendMessage(m.chat, { react: { text: emot, key: m.key
 function pickRandom(list) { return list[Math.floor(Math.random() * list.length)]}
 }}
 
-global.dfail = (type, m, conn, usedPrefix, command) => { // 'conn' es el tercer argumento
+global.dfail = (type, m, conn, usedPrefix, command) => {
+let edadaleatoria = ['10', '28', '20', '40', '18', '21', '15', '11', '9', '17', '25'].getRandom()
+let user2 = m.pushName || 'Anónimo'
+let verifyaleatorio = ['registrar', 'reg', 'verificar', 'verify', 'register'].getRandom()
 
-    let edadaleatoria = ['10', '28', '20', '40', '18', '21', '15', '11', '9', '17', '25'].getRandom()
-    let user2 = m.pushName || 'Anónimo'
-    let verifyaleatorio = ['registrar', 'reg', 'verificar', 'verify', 'register'].getRandom()
+const msg = {
+rowner: '🔐 Solo el Creador del Bot puede usar este comando.',
+owner: '👑 Solo el Creador y Sub Bots pueden usar este comando.',
+mods: '🛡️ Solo los Moderadores pueden usar este comando.',
+premium: '💎 Solo usuarios Premium pueden usar este comando.',
+group: '「✧」 Este comando es sólo para grupos.',
+private: '🔒 Solo en Chat Privado puedes usar este comando.',
+admin: '⚔️ Solo los Admins del Grupo pueden usar este comando.',
+botAdmin: 'El bot debe ser Admin para ejecutar esto.',
+unreg: `> 🔰 Debes estar Registrado para usar este comando.\n\n Ejemplo : #reg Ado.55`,
+restrict: '⛔ Esta función está deshabilitada.'
+}[type];
 
-    const msg = {
-    rowner: '🔐 Solo el Creador del Bot puede usar este comando.',
-    owner: '👑 Solo el Creador y Sub Bots pueden usar este comando.',
-    mods: '🛡️ Solo los Moderadores pueden usar este comando.',
-    premium: '💎 Solo usuarios Premium pueden usar este comando.',
-    group: '「✧」 Este comando es sólo para grupos.',
-    private: '🔒 Solo en Chat Privado puedes usar este comando.',
-    admin: '⚔️ Solo los Admins del Grupo pueden usar este comando.',
-    botAdmin: 'El bot debe ser Admin para ejecutar esto.',
-    unreg: '> 🔰 Debes estar Registrado para usar este comando.\n\n Ejemplo : #reg Ado.55',
-    restrict: '⛔ Esta función está deshabilitada.'
-    }[type];
+if (msg)
+return conn.reply(m.chat, msg, m, { contextInfo: rcanal }).then(() => conn.sendMessage(m.chat, { react: { text: '✖️', key: m.key } }))
 
-    if (msg)
-        return conn.reply(m.chat, msg, m, { contextInfo: rcanal }).then(() => conn.sendMessage(m.chat, { react: { text: '✖️', key: m.key } }))
+let file = global.__filename(import.meta.url, true)
+watchFile(file, async () => {
+unwatchFile(file)
+console.log(chalk.magenta("Se actualizo 'handler.js'"))
 
-    let file = global.__filename(import.meta.url, true)
-    watchFile(file, async () => {
-        unwatchFile(file)
-        console.log(chalk.magenta("Se actualizo 'handler.js'"))
-
-        if (global.conns && global.conns.length > 0) {
-            const users = [...new Set([...global.conns
-                .filter(conn => conn.user && conn.ws.socket && conn.ws.socket.readyState !== ws.CLOSED)
-                .map(conn => conn)])]
-            for (const userr of users) {
-                userr.subreloadHandler(false)
-            }
-        }
-    })
+if (global.conns && global.conns.length > 0) {
+const users = [...new Set([...global.conns
+.filter(conn => conn.user && conn.ws.socket && conn.ws.socket.readyState !== ws.CLOSED)
+.map(conn => conn)])]
+for (const userr of users) {
+userr.subreloadHandler(false)
+}
+}
+})
 }
