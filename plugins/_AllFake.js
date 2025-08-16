@@ -48,6 +48,6 @@ export async function before(m, { conn }) {
       }
     }
   } catch (e) {
-    console.log('Error al generar rcanal:', e.message)
+    console.log('❌ Error al generar rcanal:', e?.message || e)
   }
 }
