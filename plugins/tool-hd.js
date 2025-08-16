@@ -1,80 +1,57 @@
-//--> Hecho por Ado-rgb (github.com/Ado-rgb)
-// •|• No quites créditos..
 import fetch from 'node-fetch'
 import FormData from 'form-data'
+import { fileTypeFromBuffer } from 'file-type'
 
-async function uploadImage(buffer) {
-  const form = new FormData()
-  form.append('fileToUpload', buffer, 'image.jpg')
-  form.append('reqtype', 'fileupload')
+export const command = ['remini', 'hd', 'enhance']
+export const tags = ['tools']
 
-  const res = await fetch('https://catbox.moe/user/api.php', { method: 'POST', body: form })
-  if (!res.ok) throw new Error('Error al subir la imagen')
-  return await res.text()
+const uploadImage = async (buffer) => {
+    const { ext } = await fileTypeFromBuffer(buffer)
+    const form = new FormData()
+    form.append('file', buffer, `image.${ext}`)
+
+    const res = await fetch('https://tmpfiles.org/api/v1/upload', {
+        method: 'POST',
+        body: form
+    })
+    const json = await res.json()
+    return json.data.url
 }
 
-let handler = async (m, { conn, usedPrefix, command }) => {
-  try {
-    await m.react('🕓')
+export async function handler(conn, m) {
+    let q = m.quoted ? m.quoted : m
+    let mime = (q.msg || q).mimetype || ''
 
-    let q = m.quoted ? m.quoted : m  
-    let mime = (q.msg || q).mimetype || q.mediaType || ''  
+    if (!/image\/(jpe?g|png)/.test(mime)) {
+        return conn.sendMessage(m.chat, {
+            text: '❌ Por favor, envía una imagen o responde a una imagen para mejorarla.'
+        }, { quoted: m })
+    }
 
-    if (!mime) {  
-      return conn.sendMessage(m.chat, {  
-        text: `❀ Por favor, envía una imagen o responde a una imagen usando *${usedPrefix + command}*`,  
-        ...global.rcanal  
-      }, { quoted: m })  
-    }  
+    try {
+        await conn.sendMessage(m.chat, { react: { text: '⏳', key: m.key } })
 
-    if (!/image\/(jpe?g|png|webp)/.test(mime)) {  
-      return conn.sendMessage(m.chat, {  
-        text: `✧ El formato (${mime}) no es compatible, usa JPG, PNG o WEBP.`,  
-        ...global.rcanal  
-      }, { quoted: m })  
-    }  
+        const buffer = await q.download()
+        const imageUrl = await uploadImage(buffer)
 
-    await conn.sendMessage(m.chat, {  
-      text: `✧ Mejorando tu imagen, espera...`,  
-      ...global.rcanal  
-    }, { quoted: m })  
+        // API para mejorar la imagen
+        const apiUrl = `https://api.itsrose.life/image/enhance?url=${encodeURIComponent(imageUrl)}`
+        
+        const res = await fetch(apiUrl)
+        const improvedImage = await res.buffer()
 
-    let img = await q.download?.()  
-    if (!img) throw new Error('No pude descargar la imagen.')  
+        await conn.sendMessage(m.chat, {
+            image: improvedImage,
+            caption: '✅ *Imagen mejorada con éxito.*'
+        }, { quoted: m })
 
-    let uploadedUrl = await uploadImage(img)  
+        await conn.sendMessage(m.chat, { react: { text: '✅', key: m.key } })
 
-    // Usar la nueva API
-    const apiUrl = `https://myapiadonix.vercel.app/api/ends/upscale?imageUrl=${encodeURIComponent(uploadedUrl)}`  
-    const res = await fetch(apiUrl)  
-    if (!res.ok) throw new Error(`Error en la API: ${res.statusText}`)  
-    const data = await res.json()  
-
-    if (data.status !== 'success' || !data.result_url) throw new Error('No se pudo mejorar la imagen.')  
-
-    const improvedRes = await fetch(data.result_url)  
-    const buffer = await improvedRes.buffer()  
-
-    await conn.sendMessage(m.chat, {  
-      image: buffer,  
-      caption: '✅ *Imagen mejorada con éxito*',  
-      ...global.rcanal  
-    }, { quoted: m })  
-
-    await m.react('✅')
-
-  } catch (e) {
-    console.error(e)
-    await m.react('✖️')
-    await conn.sendMessage(m.chat, {
-      text: '❌ Error al mejorar la imagen, inténtalo más tarde.',
-      ...global.rcanal
-    }, { quoted: m })
-  }
+    } catch (e) {
+        console.error(e)
+        await conn.sendMessage(m.chat, { react: { text: '✖️', key: m.key } })
+        await conn.sendMessage(m.chat, {
+            text: '❌ Ocurrió un error al mejorar la imagen. Inténtalo de nuevo más tarde.'
+        }, { quoted: m })
+    }
 }
-
-handler.help = ['hd']
-handler.tags = ['tools']
-handler.command = ['remini', 'hd', 'enhance']
-
-export default handler
