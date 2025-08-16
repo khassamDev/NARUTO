@@ -1,6 +1,9 @@
 import fetch from "node-fetch";
 import yts from "yt-search";
 import ytdl from "ytdl-core";
+import { join } from 'path';
+import { tmpdir } from 'os';
+import { createWriteStream } from 'fs';
 
 const ytIdRegex = /(?:youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
 
@@ -26,52 +29,91 @@ const formatViews = (views) => {
   return views.toString();
 };
 
+// **Inicio de la lógica de optimización y cola**
+const requestQueue = [];
+let isProcessing = false;
+const audioCache = new Map();
+
+const processQueue = async (conn) => {
+    if (requestQueue.length === 0 || isProcessing) return;
+    isProcessing = true;
+
+    const { m, video } = requestQueue.shift();
+
+    try {
+        const { title, timestamp, views, url, thumbnail, author, ago } = video;
+        const cacheKey = url;
+
+        const caption = [
+            "✧─── ･ ｡ﾟ★: *.✦ .* :★. ───✧",
+            "⧼ ᰔᩚ ⧽  M U S I C  -  Y O U T U B E",
+            "",
+            `» ✧ « *${title}*`,
+            `> ➩ Canal › *${author.name}*`,
+            `> ➩ Duración › *${timestamp}*`,
+            `> ➩ Vistas › *${formatViews(views)}*`,
+            `> ➩ Publicado › *${ago || "desconocido"}*`,
+            `> ➩ Link › *${url}*`,
+            "",
+            `> ✰ Descargando audio, espera... ✧\n(Quedan ${requestQueue.length} en la cola)`
+        ].join("\n");
+
+        await conn.sendMessage(m.chat, { image: { url: thumbnail }, caption }, { quoted: m });
+
+        if (audioCache.has(cacheKey)) {
+            await conn.sendMessage(m.chat, {
+                audio: audioCache.get(cacheKey),
+                mimetype: 'audio/mpeg',
+                fileName: `${title}.mp3`
+            }, { quoted: m });
+        } else {
+            const audioStream = ytdl(url, { filter: 'audioonly', quality: 'highestaudio' });
+            const tempFilePath = join(tmpdir(), `${title}.mp3`);
+            const writeStream = createWriteStream(tempFilePath);
+            audioStream.pipe(writeStream);
+
+            await new Promise((resolve, reject) => {
+                writeStream.on('finish', resolve);
+                writeStream.on('error', reject);
+                audioStream.on('error', reject);
+            });
+
+            const audioBuffer = Buffer.from(require('fs').readFileSync(tempFilePath));
+            audioCache.set(cacheKey, audioBuffer);
+            
+            await conn.sendMessage(m.chat, {
+                audio: audioBuffer,
+                mimetype: 'audio/mpeg',
+                fileName: `${title}.mp3`
+            }, { quoted: m });
+        }
+    } catch (err) {
+        console.error("Error al procesar la cola:", err);
+        await m.reply(toSansSerifPlain(`❌ Ocurrió un error al reproducir el audio:\n${err.message}`));
+    } finally {
+        isProcessing = false;
+        processQueue(conn); // Procesa el siguiente elemento en la cola
+    }
+};
+
 const handler = async (m, { conn, text }) => {
   if (!text) return m.reply(toSansSerifPlain("✦ Ingresa el nombre o link de un video."));
 
   try {
-    // Reacción mientras busca el video
     await conn.sendMessage(m.chat, { react: { text: "🕐", key: m.key } });
 
-    let video;
     const ytId = ytIdRegex.exec(text);
     const search = ytId ? await yts({ videoId: ytId[1] }) : await yts(text);
-    video = ytId ? search.video : search.all[0];
+    const video = ytId ? search.video : search.all[0];
 
     if (!video) throw new Error("No se encontró el video.");
 
-    const { title, timestamp, views, url, thumbnail, author, ago } = video;
-
-    const caption = [
-      "✧─── ･ ｡ﾟ★: *.✦ .* :★. ───✧",
-      "⧼ ᰔᩚ ⧽  M U S I C  -  Y O U T U B E",
-      "",
-      `» ✧ « *${title}*`,
-      `> ➩ Canal › *${author.name}*`,
-      `> ➩ Duración › *${timestamp}*`,
-      `> ➩ Vistas › *${formatViews(views)}*`,
-      `> ➩ Publicado › *${ago || "desconocido"}*`,
-      `> ➩ Link › *${url}*`,
-      "",
-      "> ✰ Descargando audio, espera... ✧"
-    ].join("\n");
-
-    // Enviar info antes de descargar
-    await conn.sendMessage(m.chat, { image: { url: thumbnail }, caption }, { quoted: m });
-
-    // Descargar audio con ytdl-core
-    const audioStream = ytdl(url, { filter: 'audioonly', quality: 'highestaudio' });
-
-    // Enviar audio al chat
-    await conn.sendMessage(m.chat, { 
-      audio: audioStream, 
-      mimetype: 'audio/mpeg', 
-      fileName: `${title}.mp3`
-    }, { quoted: m });
+    requestQueue.push({ m, video });
+    processQueue(conn);
 
   } catch (err) {
     console.error("Error en .play:", err);
-    await m.reply(toSansSerifPlain(`❌ Ocurrió un error al reproducir el audio:\n${err.message}`));
+    await m.reply(toSansSerifPlain(`❌ Ocurrió un error al buscar el video:\n${err.message}`));
   }
 };
 
