@@ -1,70 +1,66 @@
-import moment from 'moment-timezone'
 import { createHash } from 'crypto'
+import moment from 'moment-timezone'
 
-let handler = async function (m, { conn }) {
+let handler = async (m, { conn }) => {
   let user = global.db.data.users[m.sender]
-  
-  // si ya está registrado no hacemos nada
-  if (user?.registered) return
+  if (!user) return // seguridad
 
-  // si no existe el usuario en la db lo creamos
-  if (!user) {
-    global.db.data.users[m.sender] = {
-      name: '',
-      age: 0,
-      regTime: 0,
-      registered: false,
-      coin: 0,
-      exp: 0,
-      joincount: 0
-    }
-    user = global.db.data.users[m.sender]
-  }
+  // Si ya está registrado, no hacemos nada
+  if (user.registered) return
 
-  // obtenemos el nombre
-  let name = ''
-  try {
-    name = await conn.getName(m.sender)
-  } catch (e) {
-    name = m.pushName || 'Sin nombre'
-  }
+  // Inicializamos valores si no existen
+  if (user.coin === undefined) user.coin = 0
+  if (user.exp === undefined) user.exp = 0
+  if (user.joincount === undefined) user.joincount = 0
 
-  // datos base
-  const fecha = moment().tz('America/Asuncion').toDate()
-  const sn = createHash('md5').update(m.sender).digest('hex').slice(0, 20)
+  // Datos por defecto
+  const nombre = (await conn.getName(m.sender)) || "Shinobi"
+  const edad = 18 // por defecto
+  const fecha = moment().tz('America/Tegucigalpa').toDate()
+  const moneda = global.moneda || '💰'
 
-  // registro automático
-  user.name = name.trim()
-  user.age = 18 // edad por defecto
+  // Guardamos en base de datos
+  user.name = nombre.trim()
+  user.age = edad
   user.regTime = +new Date()
   user.registered = true
-  user.coin = (user.coin || 0) + 20 // recompensa inicial
-  user.exp = (user.exp || 0) + 100
-  user.joincount = (user.joincount || 0) + 5
+  user.coin += 46
+  user.exp += 310
+  user.joincount += 25
 
-  // mensaje en privado
+  // ID único
+  const sn = createHash('md5').update(m.sender).digest('hex').slice(0, 20)
+
+  // --- Mensaje privado ---
+  const certificado = `
+🪪 ✦⟩ 𝖢𝖾𝗋𝗍𝗂𝖿𝗂𝖼𝖺𝖽𝗈  ✦⟨🪪
+
+🔮 Nombre: ${nombre}
+🕒 Edad: ${edad}
+🧬 Código ID: ${sn}
+📅 Registro: ${fecha.toLocaleDateString()}
+
+✨ Recompensas iniciales ✨
+${moneda}: +46
+⭐ EXP: +310
+🎟️ Tickets: +25
+`.trim()
+
   try {
-    await conn.sendMessage(m.sender, {
-      text: `✅ Registrado automáticamente\n\n🪪 Nombre: *${name}*\n🔑 ID: ${sn}\n📅 Fecha: ${fecha.toLocaleDateString()}`
-    }, { quoted: m })
+    await conn.sendMessage(m.sender, { text: certificado }, { quoted: m })
   } catch (e) {
-    console.log('No pude enviar mensaje en privado al usuario', m.sender, e)
+    console.error("❌ No pude enviar el mensaje privado:", e)
   }
 
-  // mensaje de bienvenida en grupo (si no es privado)
+  // --- Mensaje en grupo (simple) ---
   if (m.isGroup) {
-    try {
-      await conn.sendMessage(m.chat, {
-        text: `👋 Bienvenido @${m.sender.split('@')[0]} ya estás registrado.\nRevisa tu privado para ver tu tarjeta.`,
-        mentions: [m.sender]
-      }, { quoted: m })
-    } catch (e) {
-      console.log('No pude mandar mensaje de bienvenida en grupo', e)
-    }
+    await m.reply(`👋 Bienvenido @${m.sender.split('@')[0]} ya estás registrado ✅`, null, {
+      mentions: [m.sender]
+    })
   }
 }
 
-// esto hace que se ejecute en TODOS los mensajes
-handler.all = true 
+// Este handler se ejecuta cada vez que alguien mande un mensaje
+handler.all = true
 
 export default handler
