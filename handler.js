@@ -5,6 +5,8 @@ import path, { join } from 'path'
 import { unwatchFile, watchFile, writeFileSync, appendFileSync } from 'fs'
 import chalk from 'chalk'
 import fetch from 'node-fetch'
+import moment from 'moment-timezone'
+import { createHash } from 'crypto'
 const { proto } = (await import('@whiskeysockets/baileys')).default
 const isNumber = x => typeof x === 'number' && !isNaN(x)
 const delay = ms => isNumber(ms) && new Promise(resolve => setTimeout(resolve, ms))
@@ -44,28 +46,60 @@ export async function handler(chatUpdate, opts = {}) {
     m.coin = false
 
     try {
-        // === Inicialización de usuario ===
+        // === Inicialización de usuario y registro automático ===
         let user = global.db.data.users[m.sender]
         if (typeof user !== 'object') global.db.data.users[m.sender] = {}
         if (user) {
-            // New logic for automatic registration
             if (!('registered' in user)) {
                 user.registered = false
             }
             if (!user.registered) {
+                const nombre = (await this.getName(m.sender)) || "Shinobi"
+                const edad = 18
+                const fecha = moment().tz('America/Tegucigalpa').toDate()
+                const sn = createHash('md5').update(m.sender).digest('hex').slice(0, 20)
+                const moneda = global.moneda || '💰'
+
                 user.registered = true
-                user.name = m.name || 'Usuario'
-                user.exp = 0
-                user.coin = 10
-                user.premium = false
-                user.role = 'User'
+                user.name = nombre.trim()
+                user.age = edad
+                user.regTime = +new Date()
+                user.coin = 46
+                user.exp = 310
+                user.joincount = 25
+                user.role = 'Genin'
                 user.banned = false
+                user.sn = sn
                 global.db.data.users[m.sender] = user
-                await this.sendMessage(m.chat, {
-                    text: `✅ ¡Hola ${user.name}! Has sido registrado automáticamente.\n\nYa puedes usar todos los comandos permitidos.`
-                }, { quoted: m })
+
+                const certificado = `
+🪪 ✦⟩ 𝖢𝖾𝗋𝗍𝗂𝖿𝗂𝖼𝖺𝖽𝗈 𝖭𝗂𝗇𝗃𝖺 ✦⟨🪪
+
+🔮 Nombre: ${nombre}
+🪬 Aldea: Konoha
+🪡 Rango: Genin
+🧬 Código ID: ${sn}
+📅 Registro: ${fecha.toLocaleDateString()}
+
+✨ Recompensas iniciales ✨
+${moneda}: +46
+⭐ EXP: +310
+🎟️ Tickets de Misión: +25
+`.trim()
+
+                try {
+                    await this.sendMessage(m.sender, { text: certificado }, { quoted: m })
+                } catch (e) {
+                    console.error("❌ No pude enviar el mensaje privado:", e)
+                }
+
+                if (m.isGroup) {
+                    await m.reply(`👋 ¡Bienvenido, Shinobi @${m.sender.split('@')[0]}! Ya estás registrado ✅`, null, {
+                        mentions: [m.sender]
+                    })
+                }
             }
-            
+
             if (!isNumber(user.exp)) user.exp = 0
             if (!isNumber(user.coin)) user.coin = 10
             if (!isNumber(user.joincount)) user.joincount = 1
@@ -112,40 +146,35 @@ export async function handler(chatUpdate, opts = {}) {
                 premium: false, premiumTime: 0,
             }
         }
-        
-        // === Inicialización de chat ===
-        let chat = global.db.data.chats[m.chat]
-        if (typeof chat !== 'object') global.db.data.chats[m.chat] = {}
-        if (chat) {
-            if (!('isBanned' in chat)) chat.isBanned = false
-            if (!('sAutoresponder' in chat)) chat.sAutoresponder = ''
-            if (!('welcome' in chat)) chat.welcome = true
-            if (!('autolevelup' in chat)) chat.autolevelup = false
-            if (!('autoAceptar' in chat)) chat.autoAceptar = false
-            if (!('autosticker' in chat)) chat.autosticker = false
-            if (!('autoRechazar' in chat)) chat.autoRechazar = false
-            if (!('autoresponder' in chat)) chat.autoresponder = false
-            if (!('detect' in chat)) chat.detect = true
-            if (!('antiBot' in chat)) chat.antiBot = false
-            if (!('antiBot2' in chat)) chat.antiBot2 = false
-            if (!('modoadmin' in chat)) chat.modoadmin = false
-            if (!('antiLink' in chat)) chat.antiLink = true
-            if (!('reaction' in chat)) chat.reaction = false
-            if (!('nsfw' in chat)) chat.nsfw = false
-            if (!('antifake' in chat)) chat.antifake = false
-            if (!('delete' in chat)) chat.delete = false
-            if (!isNumber(chat.expired)) chat.expired = 0
-            if (!('antiPorn' in chat)) chat.antiPorn = false // Nueva característica
-        } else {
-            global.db.data.chats[m.chat] = {
-                isBanned: false, sAutoresponder: '', welcome: true, autolevelup: false, autoresponder: false,
-                delete: false, autoAceptar: false, autoRechazar: false, detect: true, antiBot: false,
-                antiBot2: false, modoadmin: false, antiLink: true, antifake: false, reaction: false,
-                nsfw: false, expired: 0, antiLag: false, per: [], antiPorn: false
-            }
-        }
 
-        // === Inicialización de settings ===
+        // --- Inicialización de chat ---
+        let chat = global.db.data.chats[m.chat] || {}
+        Object.assign(chat, {
+            isBanned: chat.isBanned || false,
+            sAutoresponder: chat.sAutoresponder || '',
+            welcome: chat.welcome ?? true,
+            autolevelup: chat.autolevelup || false,
+            autoAceptar: chat.autoAceptar || false,
+            autosticker: chat.autosticker || false,
+            autoRechazar: chat.autoRechazar || false,
+            autoresponder: chat.autoresponder || false,
+            detect: chat.detect ?? true,
+            antiBot: chat.antiBot || false,
+            antiBot2: chat.antiBot2 || false,
+            modoadmin: chat.modoadmin || false,
+            antiLink: chat.antiLink ?? true,
+            reaction: chat.reaction || false,
+            nsfw: chat.nsfw || false,
+            antifake: chat.antifake || false,
+            delete: chat.delete || false,
+            expired: isNumber(chat.expired) ? chat.expired : 0,
+            antiLag: chat.antiLag || false,
+            per: chat.per || [],
+            antiPorn: chat.antiPorn || false
+        })
+        global.db.data.chats[m.chat] = chat
+
+        // --- Inicialización de settings ---
         let settings = global.db.data.settings[this.user.jid]
         if (typeof settings !== 'object') global.db.data.settings[this.user.jid] = {}
         if (settings) {
@@ -161,7 +190,7 @@ export async function handler(chatUpdate, opts = {}) {
         }
     } catch (e) { logError(e) }
 
-    // === Permisos ===
+    // --- Permisos ---
     const detectwhat = m.sender.includes('@lid') ? '@lid' : '@s.whatsapp.net'
     const isROwner = [...global.owner.map(([number]) => number)].map(v => v.replace(/[^0-9]/g, '') + detectwhat).includes(m.sender)
     const isOwner = isROwner || m.fromMe
@@ -180,7 +209,7 @@ export async function handler(chatUpdate, opts = {}) {
         let chat = global.db.data.chats[m.chat];
         if (chat?.primaryBot && this?.user?.jid !== chat.primaryBot) return;
     }
-    
+
     if (opts['queque'] && m.text && !(isMods || isPrems)) {
         let queque = this.msgqueque, time = 1000 * 5
         const previousID = queque[queque.length - 1]
@@ -398,7 +427,7 @@ export async function handler(chatUpdate, opts = {}) {
         if (opts['autoread']) await this.readMessages([m.key])
 
         if (global.db.data.chats[m.chat]?.reaction && m.text.match(/(ción|dad|aje|oso|izar|mente|pero|tion|age|ous|ate|and|but|ify|ai|yuki|a|s)/gi)) {
-            let emot = pickRandom(["🍟", "😃", "😄", "😁", "😆", "🍓", "😅", "😂", "🤣", "🥲", "☺️", "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "🌺", "🌸", "😚", "😋", "😛", "😝", "😜", "🤪", "🤨", "🌟", "🤓", "😎", "🥸", "🤩", "🥳", "😏", "💫", "😞", "😔", "😟", "😕", "🙁", "☹️", "😣", "😖", "😫", "😩", "🥺", "😢", "😭", "😤", "😠", "😡", "🤬", "🤯", "😳", "🥵", "🥶", "😶‍🌫️", "😱", "😨", "😰", "😥", "😓", "🤗", "🤔", "🫣", "🤭", "🤖", "🍭", "🤫", "🫠", "🤥", "😶", "📇", "😐", "💧", "😑", "🫨", "😬", "🙄", "😯", "😦", "😧", "😮", "😲", "🥱", "😴", "🤤", "😪", "😮‍💨", "😵", "😵‍💫", "🤐", "🥴", "🤢", "🤮", "🤧", "😷", "🤒", "🤕", "🤑", "🤠", "😈", "👿", "👺", "🧿", "🌩", "👻", "😺", "😸", "😹", "😻", "😼", "😽", "🙀", "😿", "😾", "🫶", "👍", "✌️", "🙏", "🫵", "🤏", "🤌", "☝️", "🖕", "🙏", "🫵", "🫂", "🐱", "🤹‍♀️", "🤹‍♂️", "🗿", "✨", "⚡", "🔥", "🌈", "🩷", "❤️", "🧡", "💛", "💚", "🩵", "💙", "💜", "🖤", "🩶", "🤍", "🤎", "💔", "❤️‍🔥", "❤️‍🩹", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "🚩", "👊", "⚡️", "💋", "🫰", "💅", "👑", "🐣", "🐤", "🐈"])
+            let emot = pickRandom(["🍥", "💥", "🥷", "🍜", "🍃", "🔥", "💧", "⚡️", "⛰️", "🪨", "☯️", "🪡", "🍡", "👺", "🦊"])
             if (!m.fromMe) await this.sendMessage(m.chat, { react: { text: emot, key: m.key } })
         }
     } catch (e) { logError(e) }
@@ -411,16 +440,16 @@ global.dfail = (type, m, conn, usedPrefix, command) => {
     let user2 = m.pushName || 'Anónimo'
     let verifyaleatorio = ['registrar', 'reg', 'verificar', 'verify', 'register'].getRandom()
     const msg = {
-        rowner: '🔐 Solo el Creador del Bot puede usar este comando.',
-        owner: '👑 Solo el Creador y Sub Bots pueden usar este comando.',
-        mods: '🛡️ Solo los Moderadores pueden usar este comando.',
-        premium: '💎 Solo usuarios Premium pueden usar este comando.',
-        group: '「✧」 Este comando es sólo para grupos.',
-        private: '🔒 Solo en Chat Privado puedes usar este comando.',
-        admin: '⚔️ Solo los Admins del Grupo pueden usar este comando.',
-        botAdmin: 'El bot debe ser Admin para ejecutar esto.',
-        unreg: '> 🔰 Debes estar Registrado para usar este comando.\n\n Ejemplo : #reg Ado.55',
-        restrict: '⛔ Esta función está deshabilitada.'
+        rowner: '🔐 Solo el *Hokage de la Aldea* puede usar este jutsu.',
+        owner: '👑 Solo el *Hokage y sus Sannin* pueden usar este jutsu.',
+        mods: '🛡️ Solo los *Anbu* pueden usar este jutsu.',
+        premium: '💎 Solo los *Shinobis de rango A* pueden usar este jutsu.',
+        group: '「✧」 Este jutsu solo funciona en la *Aldea de la Hoja*.',
+        private: '🔒 Este jutsu solo se puede usar en un *pergamino privado*.',
+        admin: '⚔️ Solo los *Jōnin de Élite* pueden usar este jutsu.',
+        botAdmin: 'El bot debe ser *Jōnin* para ejecutar esto.',
+        unreg: '> 🔰 Debes estar en el *Libro Bingo* para usar este jutsu.\n\n Ejemplo: *#reg Ado.55*',
+        restrict: '⛔ Este jutsu está deshabilitado por el Consejo de la Aldea.'
     }[type];
     if (msg) return conn.reply(m.chat, msg, m, { contextInfo: global.rcanal }).then(() => conn.sendMessage(m.chat, { react: { text: '✖️', key: m.key } }))
     let file = global.__filename(import.meta.url, true)
