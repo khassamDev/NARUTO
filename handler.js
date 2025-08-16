@@ -2,7 +2,7 @@
 import { smsg } from './lib/simple.js'
 import { fileURLToPath } from 'url'
 import path, { join } from 'path'
-import { writeFileSync, appendFileSync, existsSync } from 'fs'
+import { writeFileSync, appendFileSync } from 'fs'
 import chalk from 'chalk'
 
 const { proto } = (await import('@whiskeysockets/baileys')).default
@@ -79,7 +79,8 @@ export async function handler(chatUpdate, opts = {}) {
 
     // === Permisos ===
     const detectwhat = m.sender.includes('@lid') ? '@lid' : '@s.whatsapp.net'
-    const isROwner = [...global.owner.map(([number]) => number)].map(v=>v.replace(/[^0-9]/g,'')+detectwhat).includes(m.sender)
+    const isROwner = [...global.owner.map(([number]) => number)]
+        .map(v=>v.replace(/[^0-9]/g,'')+detectwhat).includes(m.sender)
     const isOwner = isROwner || m.fromMe
     const isMods = isROwner || global.mods.map(v=>v.replace(/[^0-9]/g,'')+detectwhat).includes(m.sender)
     const isPrems = isROwner || global.prems.map(v=>v.replace(/[^0-9]/g,'')+detectwhat).includes(m.sender) || user.premium
@@ -110,12 +111,13 @@ export async function handler(chatUpdate, opts = {}) {
         let plugin = global.plugins[name]
         if (!plugin || plugin.disabled) continue
 
-        const __filename = join(___dirname,name)
-
         // Ejecuta plugin.all si existe
-        if (typeof plugin.all==='function') try{ await plugin.all.call(this,m,{chatUpdate,__dirname:___dirname,__filename}) } catch(e){ logError(e) }
+        if (typeof plugin.all==='function') {
+            try{ await plugin.all.call(this,m,{chatUpdate,__dirname:___dirname,__filename:join(___dirname,name)}) }
+            catch(e){ logError(e) }
+        }
 
-        // Detecta prefijo
+        // Detecta prefijo y extrae comando
         const str2Regex = str => str.replace(/[|\\{}()[\]^$+*?.]/g,'\\$&')
         let _prefix = plugin.customPrefix || global.prefix || '!'
         let match = (_prefix instanceof RegExp ?
@@ -134,15 +136,16 @@ export async function handler(chatUpdate, opts = {}) {
 
         // === Ejecutar plugin seguro ===
         try{
-            if(typeof plugin.call==='function') await plugin.call.call(this,m,{match,usedPrefix,noPrefix,args,command,conn:this})
-            else if(typeof plugin.default==='function') await plugin.default.call(this,m,{match,usedPrefix,noPrefix,args,command,conn:this})
-            else console.log(chalk.yellow(`Plugin sin función call: ${name}`))
+            if(typeof plugin.call==='function') {
+                await plugin.call.call(this,m,{match,usedPrefix,noPrefix,args,command,conn:this})
+            } else if(typeof plugin.default==='function') {
+                await plugin.default.call(this,m,{match,usedPrefix,noPrefix,args,command,conn:this})
+            } else {
+                console.log(chalk.yellow(`Plugin sin función call: ${name}`))
+            }
         } catch(e){
             logError(e)
-            console.log(chalk.red(`[CRITICAL] Reiniciando bot por fallo en plugin: ${name}`))
-            process.exit(1)
         }
-        break
     }
 
     // === Comandos Owner especiales ===
