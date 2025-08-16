@@ -129,7 +129,7 @@ const handler = async (m, { conn, usedPrefix: _p }) => {
   }
 }
 
-handler.command = ['menuninja', 'shinobimenu']
+handler.command = ['help', 'menu', 'menuninja', 'shinobimenu']
 handler.register = false
 export default handler
 
