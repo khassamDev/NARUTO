@@ -6342,7 +6342,7 @@
     "50493059810@s.whatsapp.net": {
       "isBanned": false,
       "bienvenida": true,
-      "antiLink": false,
+      "antiLink": true,
       "onlyLatinos": false,
       "nsfw": false,
       "expired": 0
