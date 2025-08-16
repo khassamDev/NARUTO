@@ -1,6 +1,7 @@
-import fs from 'fs'
+import fs from 'fs/promises'
 import { join } from 'path'
 import { xpRange } from '../lib/levelling.js'
+import moment from 'moment-timezone'
 
 // Etiquetas y secciones con temática de Naruto
 const tagsNaruto = {
@@ -45,6 +46,20 @@ const handler = async (m, { conn, usedPrefix: _p }) => {
     const { min, xp, max } = xpRange(level, global.multiplier)
     const name = await conn.getName(m.sender)
 
+    // Saludo que se actualiza con cada uso
+    const hour = moment().tz('America/Tegucigalpa').hour()
+    const greetingMap = {
+      0: 'una linda noche 🌙', 1: 'una linda noche 💤', 2: 'una linda noche 🦉',
+      3: 'una linda mañana ✨', 4: 'una linda mañana 💫', 5: 'una linda mañana 🌅',
+      6: 'una linda mañana 🌄', 7: 'una linda mañana 🌅', 8: 'una linda mañana 💫',
+      9: 'una linda mañana ✨', 10: 'un lindo día 🌞', 11: 'un lindo día 🌨',
+      12: 'un lindo día ❄', 13: 'un lindo día 🌤', 14: 'una linda tarde 🌇',
+      15: 'una linda tarde 🥀', 16: 'una linda tarde 🌹', 17: 'una linda tarde 🌆',
+      18: 'una linda noche 🌙', 19: 'una linda noche 🌃', 20: 'una linda noche 🌌',
+      21: 'una linda noche 🌃', 22: 'una linda noche 🌙', 23: 'una linda noche 🌃',
+    }
+    const greeting = 'Espero que tengas ' + (greetingMap[hour] || 'un buen día')
+
     const d = new Date(Date.now() + 3600000)
     const date = d.toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })
 
@@ -63,20 +78,18 @@ const handler = async (m, { conn, usedPrefix: _p }) => {
 
     const botActual = conn.user?.jid?.split('@')[0].replace(/\D/g, '')
     const configPath = join('./JadiBots', botActual, 'config.json')
-    if (fs.existsSync(configPath)) {
-      try {
-        const config = JSON.parse(fs.readFileSync(configPath))
+    try {
+        const config = JSON.parse(await fs.readFile(configPath, 'utf-8'))
         if (config.name) nombreBot = config.name
         if (config.banner) bannerFinal = config.banner
-      } catch {}
-    }
+    } catch {}
 
     const tipo = conn.user.jid === global.conn.user.jid ? '𝗣𝗿𝗶𝗻𝗰𝗶𝗽𝗮𝗹 🆅' : '𝗦𝘂𝗯𝗕𝗼𝘁 🅱'
-    const menuConfig = defaultMenuNaruto // Usamos el nuevo menú
+    const menuConfig = defaultMenuNaruto 
 
     const _text = [
       menuConfig.before,
-      ...Object.keys(tagsNaruto).map(tag => { // Usamos las nuevas etiquetas
+      ...Object.keys(tagsNaruto).map(tag => {
         const cmds = help
           .filter(menu => menu.tags?.includes(tag))
           .map(menu => menu.help.map(h => 
@@ -114,8 +127,22 @@ const handler = async (m, { conn, usedPrefix: _p }) => {
       (_, name) => String(replace[name])
     )
 
+    let imageContent
     const isURL = /^https?:\/\//i.test(bannerFinal)
-    const imageContent = isURL ? { image: { url: bannerFinal } } : { image: fs.readFileSync(bannerFinal) }
+    if (isURL) {
+      imageContent = { image: { url: bannerFinal } }
+    } else {
+      try {
+        const fileExists = await fs.access(bannerFinal).then(() => true).catch(() => false)
+        if (fileExists) {
+          imageContent = { image: await fs.readFile(bannerFinal) }
+        } else {
+          imageContent = { text: 'No se encontró la imagen del banner, el bot usará solo texto.' }
+        }
+      } catch {
+        imageContent = { text: 'No se pudo leer la imagen del banner, el bot usará solo texto.' }
+      }
+    }
 
     await conn.sendMessage(
       m.chat,
@@ -143,16 +170,3 @@ function clockString(ms) {
   let s = isNaN(ms) ? '--' : Math.floor(ms / 1000) % 60
   return [h, m, s].map(v => v.toString().padStart(2, '0')).join(':')
 }
-
-const hour = new Date().getHours()
-const greetingMap = {
-  0: 'una linda noche 🌙', 1: 'una linda noche 💤', 2: 'una linda noche 🦉',
-  3: 'una linda mañana ✨', 4: 'una linda mañana 💫', 5: 'una linda mañana 🌅',
-  6: 'una linda mañana 🌄', 7: 'una linda mañana 🌅', 8: 'una linda mañana 💫',
-  9: 'una linda mañana ✨', 10: 'un lindo día 🌞', 11: 'un lindo día 🌨',
-  12: 'un lindo día ❄', 13: 'un lindo día 🌤', 14: 'una linda tarde 🌇',
-  15: 'una linda tarde 🥀', 16: 'una linda tarde 🌹', 17: 'una linda tarde 🌆',
-  18: 'una linda noche 🌙', 19: 'una linda noche 🌃', 20: 'una linda noche 🌌',
-  21: 'una linda noche 🌃', 22: 'una linda noche 🌙', 23: 'una linda noche 🌃',
-}
-const greeting = 'Espero que tengas ' + (greetingMap[hour] || 'un buen día')
