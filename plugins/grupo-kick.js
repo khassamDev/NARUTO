@@ -1,76 +1,53 @@
-import { isNumber } from 'util'
+// kick.js
+export const name = 'kick'
+export const command = ['kick', 'expulsar']
+export const tags = ['group']
+export const group = true
+export const admin = true
+export const botAdmin = true
 
-var handler = async (m, { conn, args }) => {
-    // 1. Validar que el comando se use en un grupo
+export async function call(m, { conn, participants, isAdmin: isUserAdmin, isBotAdmin: isBotGroupAdmin }) {
     if (!m.isGroup) {
-        return m.reply('❌ Este comando solo se puede usar en grupos.');
+        return m.reply('Este jutsu solo se puede usar en la aldea.')
     }
 
-    const groupMetadata = await conn.groupMetadata(m.chat);
-    const botParticipant = groupMetadata.participants.find(p => p.id === conn.user.jid);
-    const userParticipant = groupMetadata.participants.find(p => p.id === m.sender);
+    if (!isUserAdmin) {
+        return m.reply('🔒 Este jutsu solo puede ser usado por un Jōnin de Élite.')
+    }
 
-    // Número del creador del bot
-    const creatorNumber = '595984495031@s.whatsapp.net';
+    if (!isBotGroupAdmin) {
+        return m.reply('El bot debe ser Jōnin para ejecutar este jutsu.')
+    }
 
-    // Validar que el bot tenga permisos de administrador
-    const isBotAdmin = botParticipant?.admin === 'admin' || botParticipant?.admin === 'superadmin';
-
-    // Verificar si el usuario es administrador o el creador del bot
-    const isUserAdmin = userParticipant?.admin === 'admin' || userParticipant?.admin === 'superadmin';
-    const isUserCreator = m.sender === creatorNumber;
-
-    if (!isBotAdmin) {
-        return m.reply('❌ No soy administrador, no puedo expulsar miembros.');
+    const userToKick = m.mentionedJid[0] || m.quoted?.sender || null
+    if (!userToKick) {
+        return m.reply('Por favor, etiqueta al Shinobi que deseas expulsar.')
     }
     
-    // El creador del bot puede usar el comando aunque no sea admin del grupo
-    if (!isUserAdmin && !isUserCreator) {
-        return m.reply('❌ Solo los administradores del grupo o el creador del bot pueden usar este comando.');
+    // Verifica si está intentando expulsar al dueño del grupo
+    const groupMetadata = await conn.groupMetadata(m.chat)
+    if (groupMetadata.owner === userToKick) {
+        return m.reply('No puedes desterrar al dueño de la aldea.')
+    }
+    
+    // Verifica si está intentando expulsarse a sí mismo
+    if (userToKick === m.sender) {
+        return m.reply('No puedes desterrarte a ti mismo, ¿estás bien? 🤕')
+    }
+    
+    // Verifica si está intentando desterrar a otro administrador
+    const targetUser = participants.find(p => p.id === userToKick)
+    if (targetUser && targetUser.admin === 'admin') {
+        return m.reply('No puedo desterrar a un compañero Jōnin de Élite.')
     }
 
-    // 3. Identificar al usuario a expulsar
-    let userToKick;
-    if (m.mentionedJid && m.mentionedJid[0]) {
-        userToKick = m.mentionedJid[0];
-    } else if (m.quoted) {
-        userToKick = m.quoted.sender;
-    } else if (args[0]) {
-        const number = args[0].replace(/[^0-9]/g, '');
-        if (!number || !isNumber(parseInt(number))) {
-            return m.reply('⚠️ Número inválido. Por favor, ingresa un número de teléfono válido sin el +.');
-        }
-        userToKick = number + '@s.whatsapp.net';
-    } else {
-        return m.reply('🚫 Menciona, responde a un mensaje o escribe el número de alguien para expulsarlo.');
-    }
-
-    // 4. Validar que no se pueda expulsar al bot, al dueño del grupo o al creador del bot.
-    const ownerGroup = groupMetadata.owner || m.chat.split`-`[0] + '@s.whatsapp.net';
-
-    if (userToKick === conn.user.jid) {
-        return m.reply('😂 No me puedo expulsar a mí mismo.');
-    }
-    if (userToKick === ownerGroup) {
-        return m.reply('Ese es el dueño del grupo, no lo puedo expulsar.');
-    }
-    if (userToKick === creatorNumber) {
-        return m.reply('No puedo expulsar al creador del bot.');
-    }
-
-    // 5. Expulsar al usuario y manejar la respuesta
+    const userId = userToKick.split('@')[0]
+    
     try {
-        await conn.groupParticipantsUpdate(m.chat, [userToKick], 'remove');
-        await m.reply(`✅ Se ha expulsado al usuario.`);
+        await conn.groupParticipantsUpdate(m.chat, [userToKick], 'remove')
+        m.reply(`✅ El Shinobi @${userId} ha sido desterrado de la aldea.`, null, { mentions: [userToKick] })
     } catch (e) {
-        console.error(e);
-        await m.reply(`❌ No pude expulsar al usuario. Asegúrate de que no es un administrador.`);
+        console.error(e)
+        m.reply('⚠️ Algo salió mal. Puede que no tenga los permisos necesarios o el usuario no existe.')
     }
-};
-
-handler.help = ['kick'];
-handler.tags = ['group'];
-handler.command = ['kick','echar','hechar','sacar','ban'];
-handler.botAdmin = true; // El bot necesita ser admin
-
-export default handler;
+}
