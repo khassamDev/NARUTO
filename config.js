@@ -22,6 +22,7 @@ global.jadi = 'JadiBots'
 global.yukiJadibts = true
 
 global.namecanal = '⛩️ Misiones Ninja'
+global.DEEPAI_KEY = 'd8e57853-6d2c-4409-933a-11da7f7d4e5e'
 global.idcanal = '120363403739366547@newsletter'
 global.idcanal2 = '120363402159669836@newsletter'
 global.canal = 'https://whatsapp.com/channel/0029Vb6rWjF5Ejy2i9ZZFd1u'
