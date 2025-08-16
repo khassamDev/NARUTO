@@ -454,4 +454,3 @@ global.dfail = (type, m, conn, usedPrefix, command) => {
     const msg = {
         rowner: '🔐 Solo el *Hokage de la Aldea* puede usar este jutsu.',
         owner: '
-Actualiza completamente
