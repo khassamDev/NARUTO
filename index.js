@@ -5,6 +5,8 @@ import path, { join } from 'path'
 import { unwatchFile, watchFile, writeFileSync, appendFileSync } from 'fs'
 import chalk from 'chalk'
 import fetch from 'node-fetch'
+import moment from 'moment-timezone'
+import { createHash } from 'crypto'
 const { proto } = (await import('@whiskeysockets/baileys')).default
 const isNumber = x => typeof x === 'number' && !isNaN(x)
 const delay = ms => isNumber(ms) && new Promise(resolve => setTimeout(resolve, ms))
@@ -44,26 +46,57 @@ export async function handler(chatUpdate, opts = {}) {
     m.coin = false
 
     try {
-        // === Inicialización de usuario ===
+        // === Inicialización de usuario y registro automático ===
         let user = global.db.data.users[m.sender]
         if (typeof user !== 'object') global.db.data.users[m.sender] = {}
         if (user) {
-            // New logic for automatic registration
             if (!('registered' in user)) {
                 user.registered = false
             }
             if (!user.registered) {
+                const nombre = (await this.getName(m.sender)) || "Shinobi"
+                const edad = 18
+                const fecha = moment().tz('America/Tegucigalpa').toDate()
+                const sn = createHash('md5').update(m.sender).digest('hex').slice(0, 20)
+                const moneda = global.moneda || '💰'
+                
                 user.registered = true
-                user.name = m.name || 'Usuario'
-                user.exp = 0
-                user.coin = 10
-                user.premium = false
+                user.name = nombre.trim()
+                user.age = edad
+                user.regTime = +new Date()
+                user.coin = 46
+                user.exp = 310
+                user.joincount = 25
                 user.role = 'User'
                 user.banned = false
+                user.sn = sn
                 global.db.data.users[m.sender] = user
-                await this.sendMessage(m.chat, {
-                    text: `✅ ¡Hola ${user.name}! Has sido registrado automáticamente.\n\nYa puedes usar todos los comandos permitidos.`
-                }, { quoted: m })
+
+                const certificado = `
+🪪 ✦⟩ 𝖢𝖾𝗋𝗍𝗂𝖿𝗂𝖼𝖺𝖽𝗈  ✦⟨🪪
+
+🔮 Nombre: ${nombre}
+🕒 Edad: ${edad}
+🧬 Código ID: ${sn}
+📅 Registro: ${fecha.toLocaleDateString()}
+
+✨ Recompensas iniciales ✨
+${moneda}: +46
+⭐ EXP: +310
+🎟️ Tickets: +25
+`.trim()
+
+                try {
+                  await this.sendMessage(m.sender, { text: certificado }, { quoted: m })
+                } catch (e) {
+                  console.error("❌ No pude enviar el mensaje privado:", e)
+                }
+
+                if (m.isGroup) {
+                    await m.reply(`👋 Bienvenido @${m.sender.split('@')[0]} ya estás registrado ✅`, null, {
+                        mentions: [m.sender]
+                    })
+                }
             }
             
             if (!isNumber(user.exp)) user.exp = 0
@@ -136,7 +169,7 @@ export async function handler(chatUpdate, opts = {}) {
             expired: isNumber(chat.expired) ? chat.expired : 0,
             antiLag: chat.antiLag || false,
             per: chat.per || [],
-            antiPorn: chat.antiPorn || false // Nueva característica
+            antiPorn: chat.antiPorn || false
         })
         global.db.data.chats[m.chat] = chat
 
