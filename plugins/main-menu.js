@@ -1,9 +1,9 @@
-import fs from 'fs/promises'
+import fs from 'fs'
 import { join } from 'path'
 import { xpRange } from '../lib/levelling.js'
 import moment from 'moment-timezone'
 
-const tagsNaruto = {
+const tags = {
   serbot: '🫔 JADIBOT: CLONES',
   eco: '💰 RYO: ECONOMÍA',
   downloader: '📜 JUTSUS DE DESCARGA',
@@ -21,42 +21,29 @@ const tagsNaruto = {
   fun: '😂 DIVERSIÓN Y ENTRENAMIENTO',
 }
 
-const defaultMenuNaruto = {
+const defaultMenu = {
   before: `
 ¡Dattebayo, %name!
-Soy %botname *( %tipo )*, listo para la batalla.
+Soy %botname *( %tipo )*, el Ninja de la Hoja.
 
-🪪 *SOPORTE:* +595984495031
+🪪 *CANAL NARUTO:* https://whatsapp.com/channel/0029VbArz9fAO7RGy2915k3O
 
-> 🍜 Fecha de misión: *%date*
-> 🍥 Tiempo de servicio: *%uptime*
+> 🍜 Fecha de Misión: *%date*
+> 🍥 Tiempo de Servicio: *%uptime*
 %readmore
 `.trimStart(),
 
   header: '\n\`%category 🥞\`',
   body: '\`🧃\` *%cmd* %islimit %isPremium',
   footer: '',
-  after: '\nCreado por el Clan Uchiha.',
+  after: '\n🍃 Creado por el Clan Uchiha.',
 }
 
-let handler = async (m, { conn, usedPrefix: _p }) => {
+const handler = async (m, { conn, usedPrefix: _p }) => {
   try {
     const { exp, limit, level } = global.db.data.users[m.sender]
     const { min, xp, max } = xpRange(level, global.multiplier)
     const name = await conn.getName(m.sender)
-
-    const hour = moment().tz('America/Tegucigalpa').hour()
-    const greetingMap = {
-      0: 'una linda noche 🌙', 1: 'una linda noche 💤', 2: 'una linda noche 🦉',
-      3: 'una linda mañana ✨', 4: 'una linda mañana 💫', 5: 'una linda mañana 🌅',
-      6: 'una linda mañana 🌄', 7: 'una linda mañana 🌅', 8: 'una linda mañana 💫',
-      9: 'una linda mañana ✨', 10: 'un lindo día 🌞', 11: 'un lindo día 🌨',
-      12: 'un lindo día ❄', 13: 'un lindo día 🌤', 14: 'una linda tarde 🌇',
-      15: 'una linda tarde 🥀', 16: 'una linda tarde 🌹', 17: 'una linda tarde 🌆',
-      18: 'una linda noche 🌙', 19: 'una linda noche 🌃', 20: 'una linda noche 🌌',
-      21: 'una linda noche 🌃', 22: 'una linda noche 🌙', 23: 'una linda noche 🌃',
-    }
-    const greeting = 'Espero que tengas ' + (greetingMap[hour] || 'un buen día')
 
     const d = new Date(Date.now() + 3600000)
     const date = d.toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -76,18 +63,20 @@ let handler = async (m, { conn, usedPrefix: _p }) => {
 
     const botActual = conn.user?.jid?.split('@')[0].replace(/\D/g, '')
     const configPath = join('./JadiBots', botActual, 'config.json')
-    try {
-        const config = JSON.parse(await fs.readFile(configPath, 'utf-8'))
+    if (fs.existsSync(configPath)) {
+      try {
+        const config = JSON.parse(fs.readFileSync(configPath))
         if (config.name) nombreBot = config.name
         if (config.banner) bannerFinal = config.banner
-    } catch {}
+      } catch {}
+    }
 
     const tipo = conn.user.jid === global.conn.user.jid ? '𝗣𝗿𝗶𝗻𝗰𝗶𝗽𝗮𝗹 🆅' : '𝗦𝘂𝗯𝗕𝗼𝘁 🅱'
-    const menuConfig = defaultMenuNaruto 
+    const menuConfig = conn.menu || defaultMenu
 
     const _text = [
       menuConfig.before,
-      ...Object.keys(tagsNaruto).map(tag => {
+      ...Object.keys(tags).map(tag => {
         const cmds = help
           .filter(menu => menu.tags?.includes(tag))
           .map(menu => menu.help.map(h => 
@@ -96,7 +85,7 @@ let handler = async (m, { conn, usedPrefix: _p }) => {
               .replace(/%islimit/g, menu.limit ? '⭐' : '')
               .replace(/%isPremium/g, menu.premium ? '🪪' : '')
           ).join('\n')).join('\n')
-        return [menuConfig.header.replace(/%category/g, tagsNaruto[tag]), cmds, menuConfig.footer].join('\n')
+        return [menuConfig.header.replace(/%category/g, tags[tag]), cmds, menuConfig.footer].join('\n')
       }),
       menuConfig.after
     ].join('\n')
@@ -125,22 +114,8 @@ let handler = async (m, { conn, usedPrefix: _p }) => {
       (_, name) => String(replace[name])
     )
 
-    let imageContent
     const isURL = /^https?:\/\//i.test(bannerFinal)
-    if (isURL) {
-      imageContent = { image: { url: bannerFinal } }
-    } else {
-      try {
-        const fileExists = await fs.access(bannerFinal).then(() => true).catch(() => false)
-        if (fileExists) {
-          imageContent = { image: await fs.readFile(bannerFinal) }
-        } else {
-          imageContent = { text: 'No se encontró la imagen del banner, el bot usará solo texto.' }
-        }
-      } catch {
-        imageContent = { text: 'No se pudo leer la imagen del banner, el bot usará solo texto.' }
-      }
-    }
+    const imageContent = isURL ? { image: { url: bannerFinal } } : { image: fs.readFileSync(bannerFinal) }
 
     await conn.sendMessage(
       m.chat,
@@ -154,7 +129,7 @@ let handler = async (m, { conn, usedPrefix: _p }) => {
   }
 }
 
-handler.command = ['help', 'menu', 'menuninja', 'shinobimenu']
+handler.command = ['menu', 'help', 'hélp', 'menú', 'ayuda']
 handler.register = false
 export default handler
 
@@ -167,3 +142,16 @@ function clockString(ms) {
   let s = isNaN(ms) ? '--' : Math.floor(ms / 1000) % 60
   return [h, m, s].map(v => v.toString().padStart(2, '0')).join(':')
 }
+
+const hour = new Date().getHours()
+const greetingMap = {
+  0: 'una linda noche ninja 🌙', 1: 'una linda noche ninja 💤', 2: 'una linda noche ninja 🦉',
+  3: 'una linda mañana ninja ✨', 4: 'una linda mañana ninja 💫', 5: 'una linda mañana ninja 🌅',
+  6: 'una linda mañana ninja 🌄', 7: 'una linda mañana ninja 🌅', 8: 'una linda mañana ninja 💫',
+  9: 'una linda mañana ninja ✨', 10: 'un lindo día ninja 🌞', 11: 'un lindo día ninja 🌨',
+  12: 'un lindo día ninja ❄', 13: 'un lindo día ninja 🌤', 14: 'una linda tarde ninja 🌇',
+  15: 'una linda tarde ninja 🥀', 16: 'una linda tarde ninja 🌹', 17: 'una linda tarde ninja 🌆',
+  18: 'una linda noche ninja 🌙', 19: 'una linda noche ninja 🌃', 20: 'una linda noche ninja 🌌',
+  21: 'una linda noche ninja 🌃', 22: 'una linda noche ninja 🌙', 23: 'una linda noche ninja 🌃',
+}
+const greeting = 'Espero que tengas ' + (greetingMap[hour] || 'un buen día, shinobi')
