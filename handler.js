@@ -240,19 +240,6 @@ ${moneda}: +46
     const isAdmin = isRAdmin || user?.admin === "admin"
     const isBotAdmin = !!bot?.admin
 
-    // === Antiporno ===
-    const chatData = global.db.data.chats[m.chat]
-    if (m.isGroup && chatData.antiPorn) {
-        const isMedia = ['imageMessage', 'videoMessage', 'stickerMessage'].includes(m.mtype)
-        if (isMedia) {
-            try {
-                await this.sendMessage(m.chat, { text: '❌ Contenido inapropiado eliminado.' }, { quoted: m })
-                if (m.key?.id) await this.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.key.id, participant: m.sender } })
-            } catch (e) { logError(e) }
-            return
-        }
-    }
-
     const ___dirname = path.join(path.dirname(fileURLToPath(import.meta.url)), './plugins')
     let usedPrefix = ''
 
