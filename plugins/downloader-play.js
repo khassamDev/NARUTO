@@ -1,5 +1,6 @@
 import fetch from "node-fetch";
 import yts from "yt-search";
+import ytdl from "ytdl-core";
 
 const ytIdRegex = /(?:youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
 
@@ -28,8 +29,8 @@ const formatViews = (views) => {
 const handler = async (m, { conn, text }) => {
   if (!text) return m.reply(toSansSerifPlain("✦ Ingresa el nombre o link de un video."));
 
-  // Reacción mientras busca el video
   try {
+    // Reacción mientras busca el video
     await conn.sendMessage(m.chat, { react: { text: "🕐", key: m.key } });
 
     let video;
@@ -52,14 +53,25 @@ const handler = async (m, { conn, text }) => {
       `> ➩ Publicado › *${ago || "desconocido"}*`,
       `> ➩ Link › *${url}*`,
       "",
-      "> ✰ Responde con *Audio* o *Video* para descargar ✧"
+      "> ✰ Descargando audio, espera... ✧"
     ].join("\n");
 
+    // Enviar info antes de descargar
     await conn.sendMessage(m.chat, { image: { url: thumbnail }, caption }, { quoted: m });
+
+    // Descargar audio con ytdl-core
+    const audioStream = ytdl(url, { filter: 'audioonly', quality: 'highestaudio' });
+
+    // Enviar audio al chat
+    await conn.sendMessage(m.chat, { 
+      audio: audioStream, 
+      mimetype: 'audio/mpeg', 
+      fileName: `${title}.mp3`
+    }, { quoted: m });
 
   } catch (err) {
     console.error("Error en .play:", err);
-    await m.reply(toSansSerifPlain(`❌ Ocurrió un error al ejecutar .play:\n${err.message}`));
+    await m.reply(toSansSerifPlain(`❌ Ocurrió un error al reproducir el audio:\n${err.message}`));
   }
 };
 
