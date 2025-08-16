@@ -1,100 +1,70 @@
-import db from '../lib/database.js'
-import fs from 'fs'
-import PhoneNumber from 'awesome-phonenumber'
-import { createHash } from 'crypto'
-import fetch from 'node-fetch'
 import moment from 'moment-timezone'
+import { createHash } from 'crypto'
 
-const Reg = /(.*)[.|] ?([0-9]+)$/i
+let handler = async function (m, { conn }) {
+  let user = global.db.data.users[m.sender]
+  
+  // si ya está registrado no hacemos nada
+  if (user?.registered) return
 
-let handler = async function (m, { conn, text, usedPrefix, command }) {
-  const who = m.mentionedJid?.[0] || (m.fromMe ? conn.user.jid : m.sender)
-  const pp = await conn.profilePictureUrl(who, 'image').catch(() => 'https://files.catbox.moe/xr2m6u.jpg')
-  const user = global.db.data.users[m.sender]
-  const name2 = await conn.getName(m.sender)
-  const fecha = moment().tz('America/Tegucigalpa').toDate()
-  const moneda = global.moneda || '💰'
-  const reinoEspiritual = global.canalreg || null
-
-  if (user.coin === undefined) user.coin = 0
-  if (user.exp === undefined) user.exp = 0
-  if (user.joincount === undefined) user.joincount = 0
-
-  if (user.registered) {
-    return m.reply(`🔒 Ya estás registrado
-
-¿Deseas reiniciar tu energía vital?
-➤ Usa: ${usedPrefix}unreg para renacer en el sistema`)
+  // si no existe el usuario en la db lo creamos
+  if (!user) {
+    global.db.data.users[m.sender] = {
+      name: '',
+      age: 0,
+      regTime: 0,
+      registered: false,
+      coin: 0,
+      exp: 0,
+      joincount: 0
+    }
+    user = global.db.data.users[m.sender]
   }
 
-  if (!Reg.test(text)) {
-    return m.reply(`❗ Formato erróneo dimensional
-
-➤ Usa: ${usedPrefix + command} nombre.edad
-➤ Ejemplo: ${usedPrefix + command} ${name2}.18`)
+  // obtenemos el nombre
+  let name = ''
+  try {
+    name = await conn.getName(m.sender)
+  } catch (e) {
+    name = m.pushName || 'Sin nombre'
   }
 
-  let [_, name, age] = text.match(Reg)
-
-  if (!name) return m.reply('⚠️ Tu identidad no puede estar vacía')
-  if (!age) return m.reply('⚠️ Edad requerida para iniciar el viaje')
-  if (name.length >= 100) return m.reply('⚠️ Nombre demasiado extenso para esta realidad')
-
-  age = parseInt(age)
-  if (age > 1000) return m.reply('⚠️ Edad cósmica no permitida')
-  if (age < 13) return m.reply('⚠️ Debes tener al menos 13 lunas de existencia')
-
-  user.name = name.trim()
-  user.age = age
-  user.regTime = +new Date()
-  user.registered = true
-  user.coin += 46
-  user.exp += 310
-  user.joincount += 25
-
+  // datos base
+  const fecha = moment().tz('America/Asuncion').toDate()
   const sn = createHash('md5').update(m.sender).digest('hex').slice(0, 20)
 
-  const certificadoPacto = `
-🪪 ✦⟩ 𝖢𝖾𝗋𝗍𝗂𝖿𝗂𝖼𝖺𝖽𝗈  ✦⟨🪪
+  // registro automático
+  user.name = name.trim()
+  user.age = 18 // edad por defecto
+  user.regTime = +new Date()
+  user.registered = true
+  user.coin = (user.coin || 0) + 20 // recompensa inicial
+  user.exp = (user.exp || 0) + 100
+  user.joincount = (user.joincount || 0) + 5
 
-🔮 Nombre: ${name}
-🕒 Edad: ${age}
-🧬 Código ID: ${sn}
-📅 Registro: ${fecha.toLocaleDateString()}`.trim()
+  // mensaje en privado
+  try {
+    await conn.sendMessage(m.sender, {
+      text: `✅ Registrado automáticamente\n\n🪪 Nombre: *${name}*\n🔑 ID: ${sn}\n📅 Fecha: ${fecha.toLocaleDateString()}`
+    }, { quoted: m })
+  } catch (e) {
+    console.log('No pude enviar mensaje en privado al usuario', m.sender, e)
+  }
 
-  await m.react('✅')
-
-  await conn.sendMessage(m.chat, {
-    image: { url: pp },
-    caption: certificadoPacto
-  }, { quoted: m })
-
-  if (reinoEspiritual) {
-    const mensajeNotificacion = `
-☄︎✦❀ 〘 Nuevo Registro Detectado 〙❀✦☄︎
-
-🧝‍♂️ Nombre: ${name}
-🧸 Edad: ${age}
-🧿 ID: ${sn}
-⏳ Fecha: ${moment().format('YYYY-MM-DD HH:mm:ss')}
-
-✨ Recompensas iniciales ✨
-${moneda}: +46`.trim()
-
+  // mensaje de bienvenida en grupo (si no es privado)
+  if (m.isGroup) {
     try {
-      if (global.conn?.sendMessage) {
-        await global.conn.sendMessage(reinoEspiritual, {
-          image: { url: pp },
-          caption: mensajeNotificacion
-        })
-      }
+      await conn.sendMessage(m.chat, {
+        text: `👋 Bienvenido @${m.sender.split('@')[0]} ya estás registrado.\nRevisa tu privado para ver tu tarjeta.`,
+        mentions: [m.sender]
+      }, { quoted: m })
     } catch (e) {
-      console.error('❌ Error en la transmisión espiritual:', e)
+      console.log('No pude mandar mensaje de bienvenida en grupo', e)
     }
   }
 }
 
-
-handler.command = ['regback']
+// esto hace que se ejecute en TODOS los mensajes
+handler.all = true 
 
 export default handler
