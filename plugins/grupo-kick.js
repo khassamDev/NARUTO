@@ -10,15 +10,23 @@ var handler = async (m, { conn, args }) => {
     const botParticipant = groupMetadata.participants.find(p => p.id === conn.user.jid);
     const userParticipant = groupMetadata.participants.find(p => p.id === m.sender);
 
-    // 2. Validar que el bot y el usuario tengan permisos de administrador
+    // Número del creador del bot
+    const creatorNumber = '595984495031@s.whatsapp.net';
+
+    // Validar que el bot tenga permisos de administrador
     const isBotAdmin = botParticipant?.admin === 'admin' || botParticipant?.admin === 'superadmin';
+
+    // Verificar si el usuario es administrador o el creador del bot
     const isUserAdmin = userParticipant?.admin === 'admin' || userParticipant?.admin === 'superadmin';
+    const isUserCreator = m.sender === creatorNumber;
 
     if (!isBotAdmin) {
         return m.reply('❌ No soy administrador, no puedo expulsar miembros.');
     }
-    if (!isUserAdmin) {
-        return m.reply('❌ Solo los administradores del grupo pueden usar este comando.');
+    
+    // El creador del bot puede usar el comando aunque no sea admin del grupo
+    if (!isUserAdmin && !isUserCreator) {
+        return m.reply('❌ Solo los administradores del grupo o el creador del bot pueden usar este comando.');
     }
 
     // 3. Identificar al usuario a expulsar
@@ -39,7 +47,6 @@ var handler = async (m, { conn, args }) => {
 
     // 4. Validar que no se pueda expulsar al bot, al dueño del grupo o al creador del bot.
     const ownerGroup = groupMetadata.owner || m.chat.split`-`[0] + '@s.whatsapp.net';
-    const botOwner = global.owner[0][0] + '@s.whatsapp.net'; // Asumiendo que el dueño está en global.owner
 
     if (userToKick === conn.user.jid) {
         return m.reply('😂 No me puedo expulsar a mí mismo.');
@@ -47,7 +54,7 @@ var handler = async (m, { conn, args }) => {
     if (userToKick === ownerGroup) {
         return m.reply('Ese es el dueño del grupo, no lo puedo expulsar.');
     }
-    if (userToKick === botOwner) {
+    if (userToKick === creatorNumber) {
         return m.reply('No puedo expulsar al creador del bot.');
     }
 
@@ -64,7 +71,6 @@ var handler = async (m, { conn, args }) => {
 handler.help = ['kick'];
 handler.tags = ['group'];
 handler.command = ['kick','echar','hechar','sacar','ban'];
-handler.admin = true; // Ahora el comando requiere permisos de admin
 handler.botAdmin = true; // El bot necesita ser admin
 
 export default handler;
