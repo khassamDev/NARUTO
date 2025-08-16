@@ -1,4 +1,3 @@
-// handler.js
 import { smsg } from './lib/simple.js'
 import { format } from 'util'
 import { fileURLToPath } from 'url'
@@ -49,6 +48,24 @@ export async function handler(chatUpdate, opts = {}) {
         let user = global.db.data.users[m.sender]
         if (typeof user !== 'object') global.db.data.users[m.sender] = {}
         if (user) {
+            // New logic for automatic registration
+            if (!('registered' in user)) {
+                user.registered = false
+            }
+            if (!user.registered) {
+                user.registered = true
+                user.name = m.name || 'Usuario'
+                user.exp = 0
+                user.coin = 10
+                user.premium = false
+                user.role = 'User'
+                user.banned = false
+                global.db.data.users[m.sender] = user
+                await this.sendMessage(m.chat, {
+                    text: `✅ ¡Hola ${user.name}! Has sido registrado automáticamente.\n\nYa puedes usar todos los comandos permitidos.`
+                }, { quoted: m })
+            }
+            
             if (!isNumber(user.exp)) user.exp = 0
             if (!isNumber(user.coin)) user.coin = 10
             if (!isNumber(user.joincount)) user.joincount = 1
@@ -67,7 +84,6 @@ export async function handler(chatUpdate, opts = {}) {
             if (!('muto' in user)) user.muto = false
             if (!('premium' in user)) user.premium = false
             if (!user.premium) user.premiumTime = 0
-            if (!('registered' in user)) user.registered = false
             if (!('genre' in user)) user.genre = ''
             if (!('birth' in user)) user.birth = ''
             if (!('marry' in user)) user.marry = ''
@@ -96,7 +112,7 @@ export async function handler(chatUpdate, opts = {}) {
                 premium: false, premiumTime: 0,
             }
         }
-
+        
         // === Inicialización de chat ===
         let chat = global.db.data.chats[m.chat]
         if (typeof chat !== 'object') global.db.data.chats[m.chat] = {}
