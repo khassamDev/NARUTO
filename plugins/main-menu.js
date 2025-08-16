@@ -3,7 +3,6 @@ import { join } from 'path'
 import { xpRange } from '../lib/levelling.js'
 import moment from 'moment-timezone'
 
-// Etiquetas y secciones con temática de Naruto
 const tagsNaruto = {
   serbot: '🫔 JADIBOT: CLONES',
   eco: '💰 RYO: ECONOMÍA',
@@ -40,13 +39,12 @@ Soy %botname *( %tipo )*, listo para la batalla.
   after: '\nCreado por el Clan Uchiha.',
 }
 
-const handler = async (m, { conn, usedPrefix: _p }) => {
+let handler = async (m, { conn, usedPrefix: _p }) => {
   try {
     const { exp, limit, level } = global.db.data.users[m.sender]
     const { min, xp, max } = xpRange(level, global.multiplier)
     const name = await conn.getName(m.sender)
 
-    // Saludo que se actualiza con cada uso
     const hour = moment().tz('America/Tegucigalpa').hour()
     const greetingMap = {
       0: 'una linda noche 🌙', 1: 'una linda noche 💤', 2: 'una linda noche 🦉',
@@ -160,7 +158,6 @@ handler.command = ['help', 'menu', 'menuninja', 'shinobimenu']
 handler.register = false
 export default handler
 
-// Utilidades
 const more = String.fromCharCode(8206)
 const readMore = more.repeat(4001)
 
