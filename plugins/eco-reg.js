@@ -36,7 +36,6 @@ let handler = async (m, { conn }) => {
 🪪 ✦⟩ 𝖢𝖾𝗋𝗍𝗂𝖿𝗂𝖼𝖺𝖽𝗈  ✦⟨🪪
 
 🔮 Nombre: ${nombre}
-🕒 Edad: ${edad}
 🧬 Código ID: ${sn}
 📅 Registro: ${fecha.toLocaleDateString()}
 
